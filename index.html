@@ -205,8 +205,8 @@ button,input,select,textarea{font-family:inherit;}
       <input type="text" class="modal-input" id="newEvalName" placeholder="e.g. David Bosserman">
     </div>
     <div class="modal-row">
-      <div class="modal-label">Customer phone</div>
-      <input type="tel" class="modal-input" id="newEvalPhone" placeholder="e.g. (571) 555-0134">
+      <div class="modal-label">Customer ID number</div>
+      <input type="text" class="modal-input" id="newEvalIdNumber" placeholder="e.g. NAG-2026-014">
     </div>
     <div class="modal-row">
       <div class="modal-label">Template</div>
@@ -246,11 +246,9 @@ var TEMPLATES = {
     name: "Custom Geothermal Investment Proposal",
     pages: ["pages/t1-p1.jpg","pages/t1-p2.jpg","pages/t1-p3.jpg","pages/t1-p4.jpg","pages/t1-p5.jpg","pages/t1-p6.jpg"],
     fields: [
-      { key:"customerPhone", label:"Customer Phone", group:"Customer Info", page:null, type:"tel" },
-
       { key:"customerName", label:"Customer Name", group:"Page 1 — Cover", page:0, type:"text", x:22.5,y:76.2,w:34,h:3.4, fontPx:25, color:"#1a1a1a", weight:700, align:"left" },
       { key:"customerAddress", label:"Customer Address", group:"Page 1 — Cover", page:0, type:"text", x:22.5,y:80.0,w:34,h:3.4, fontPx:21, color:"#1a1a1a", weight:500, align:"left" },
-      { key:"projectId", label:"Project ID", group:"Page 1 — Cover", page:0, type:"text", x:67.0,y:75.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
+      { key:"projectId", label:"Project / Customer ID Number", group:"Page 1 — Cover", page:0, type:"text", x:67.0,y:75.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
       { key:"date", label:"Date", group:"Page 1 — Cover", page:0, type:"date", x:67.0,y:82.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
 
       { key:"currentAnnualCost", label:"Current System — Annual Cost", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:9,y:53.2,w:29,h:5.6, fontPx:34, color:"#0d2c5c", weight:800, align:"center" },
@@ -310,7 +308,7 @@ function showApp(){
 var evaluations = [];
 async function loadEvaluations(){
   var r = await sb.from('evaluations').select('*').order('updated_at', { ascending:false });
-  if (r.error) { console.warn('[evals] load failed', r.error); evaluations = []; showToast('Could not load evaluations — see Setup notes in the file header.'); return; }
+  if (r.error) { console.warn('[evals] load failed', r.error); evaluations = []; showToast('Could not load evaluations: ' + r.error.message); return; }
   evaluations = r.data || [];
 }
 function initials(name){ return (name||'').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2) || '?'; }
@@ -333,7 +331,7 @@ function renderDashboard(){
   var q = (document.getElementById('dashSearch').value||'').toLowerCase();
   var list = evaluations.filter(function(e){
     if (!q) return true;
-    return ((e.customer_name||'')+' '+(e.customer_phone||'')).toLowerCase().includes(q);
+    return ((e.customer_name||'')+' '+(e.customer_number||'')).toLowerCase().includes(q);
   });
   var el = document.getElementById('dashList');
   if (!list.length) {
@@ -345,7 +343,7 @@ function renderDashboard(){
     return '<div class="dash-row" onclick="openEditor(\''+e.id+'\')">'
       + '<div class="dash-row-icon">'+initials(e.customer_name)+'</div>'
       + '<div class="dash-row-main"><div class="dash-row-name">'+esc(e.customer_name||'Untitled')+'</div>'
-      + '<div class="dash-row-meta">'+esc(e.customer_phone||'No phone on file')+' · updated '+timeAgo(e.updated_at)+'</div></div>'
+      + '<div class="dash-row-meta">'+(e.customer_number ? 'ID# '+esc(e.customer_number) : 'No ID number on file')+' · updated '+timeAgo(e.updated_at)+'</div></div>'
       + '<div class="dash-row-tmpl">'+esc(tmpl?tmpl.name:e.template_id)+'</div>'
       + '<button class="dash-row-del" onclick="event.stopPropagation();deleteEval(\''+e.id+'\',\''+esc(e.customer_name||'this evaluation').replace(/'/g,"\\'")+'\')" title="Delete">✕</button>'
       + '</div>';
@@ -361,7 +359,7 @@ async function deleteEval(id, name){
 // ── New evaluation modal ──
 function openNewEvalModal(){
   document.getElementById('newEvalName').value='';
-  document.getElementById('newEvalPhone').value='';
+  document.getElementById('newEvalIdNumber').value='';
   var sel = document.getElementById('newEvalTemplate');
   sel.innerHTML = Object.keys(TEMPLATES).map(function(k){ return '<option value="'+k+'">'+esc(TEMPLATES[k].name)+'</option>'; }).join('');
   document.getElementById('newEvalModal').classList.add('open');
@@ -370,18 +368,18 @@ function openNewEvalModal(){
 function closeNewEvalModal(){ document.getElementById('newEvalModal').classList.remove('open'); }
 async function createNewEval(){
   var name = document.getElementById('newEvalName').value.trim();
-  var phone = document.getElementById('newEvalPhone').value.trim();
+  var idNumber = document.getElementById('newEvalIdNumber').value.trim();
   var templateId = document.getElementById('newEvalTemplate').value;
   if (!name) { showToast('Enter a customer name first.'); return; }
   var btn = document.getElementById('newEvalGoBtn');
   btn.disabled = true; btn.textContent = 'Creating…';
-  var fields = { customerName: name, customerPhone: phone, date: new Date().toISOString().slice(0,10) };
+  var fields = { customerName: name, projectId: idNumber, date: new Date().toISOString().slice(0,10) };
   var r = await sb.from('evaluations').insert({
-    template_id: templateId, customer_name: name, customer_phone: phone,
+    template_id: templateId, customer_name: name, customer_number: idNumber,
     fields: fields, created_by: currentUser.name
   }).select().single();
   btn.disabled = false; btn.textContent = 'Create';
-  if (r.error) { showToast('Could not create evaluation. See Setup notes.'); console.warn(r.error); return; }
+  if (r.error) { showToast('Could not create evaluation: ' + r.error.message); console.warn(r.error); return; }
   closeNewEvalModal();
   openEditor(r.data.id);
 }
@@ -519,12 +517,12 @@ async function saveNow(manual){
   if (!dirty && !manual) return;
   setSaveStatus('saving');
   var name = currentFields.customerName || editingEval.customer_name;
-  var phone = currentFields.customerPhone != null ? currentFields.customerPhone : editingEval.customer_phone;
+  var idNumber = currentFields.projectId != null ? currentFields.projectId : editingEval.customer_number;
   var r = await sb.from('evaluations').update({
-    fields: currentFields, customer_name: name, customer_phone: phone, updated_at: new Date().toISOString()
+    fields: currentFields, customer_name: name, customer_number: idNumber, updated_at: new Date().toISOString()
   }).eq('id', editingEval.id);
   if (r.error) { console.warn('[evals] save failed', r.error); setSaveStatus('error'); return; }
-  editingEval.customer_name = name; editingEval.customer_phone = phone; editingEval.fields = Object.assign({}, currentFields);
+  editingEval.customer_name = name; editingEval.customer_number = idNumber; editingEval.fields = Object.assign({}, currentFields);
   dirty = false;
   setSaveStatus('saved');
 }
