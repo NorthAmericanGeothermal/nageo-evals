@@ -100,6 +100,24 @@ button,input,select,textarea{font-family:inherit;}
 .modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:1.4rem;}
 .modal-cancel{padding:11px 16px;border:none;border-radius:10px;background:var(--glass);color:var(--text-dim);cursor:pointer;font-size:14px;font-weight:600;}
 .modal-go{padding:11px 18px;border:none;border-radius:10px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;font-weight:700;}
+
+/* ── HCP customer search — used in the New Evaluation modal and the editor's Search HCP popover ── */
+.hcp-search-wrap{position:relative;}
+.hcp-search-status{font-size:11.5px;color:var(--text-dimmer);margin-top:5px;}
+.hcp-results{
+  margin-top:8px;max-height:220px;overflow-y:auto;border:1px solid var(--glass-border);border-radius:10px;
+  background:rgba(0,0,0,.2);
+}
+.hcp-result{padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--glass-border);transition:background .12s;}
+.hcp-result:last-child{border-bottom:none;}
+.hcp-result:hover{background:rgba(67,160,71,.14);}
+.hcp-result-name{font-size:14px;font-weight:700;color:var(--text);}
+.hcp-result-sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+.hcp-empty{padding:14px 12px;font-size:13px;color:var(--text-dimmer);text-align:center;}
+.hcp-picked{
+  display:flex;align-items:center;gap:8px;margin-top:8px;padding:9px 12px;border-radius:9px;
+  background:rgba(67,160,71,.14);border:1px solid rgba(67,160,71,.3);font-size:12.5px;color:var(--green-light);font-weight:600;
+}
 .modal-go:disabled{opacity:.4;cursor:not-allowed;}
 
 /* ── Editor ── */
@@ -187,6 +205,7 @@ button,input,select,textarea{font-family:inherit;}
       </div>
       <div class="spacer"></div>
       <div class="save-status" id="saveStatus"><span class="save-dot" id="saveDot"></span><span id="saveStatusText">Saved</span></div>
+      <button class="btn btn-sm" onclick="openHcpEditorSearch()">🔍 Search HCP</button>
       <button class="btn btn-sm" onclick="saveNow(true)">Save now</button>
       <button class="btn btn-accent btn-sm" id="exportBtn" onclick="exportPDF()">⬇ Export PDF</button>
     </div>
@@ -200,6 +219,13 @@ button,input,select,textarea{font-family:inherit;}
 <div class="modal-bg" id="newEvalModal">
   <div class="modal">
     <div class="modal-title">New Evaluation</div>
+    <div class="modal-row hcp-search-wrap">
+      <div class="modal-label">Search HCP customers (optional)</div>
+      <input type="text" class="modal-input" id="newEvalHcpSearch" placeholder="Start typing a customer name…" oninput="onNewEvalHcpSearch(this.value)">
+      <div class="hcp-search-status" id="newEvalHcpStatus"></div>
+      <div class="hcp-results" id="newEvalHcpResults" style="display:none"></div>
+      <div class="hcp-picked" id="newEvalHcpPicked" style="display:none"></div>
+    </div>
     <div class="modal-row">
       <div class="modal-label">Customer name</div>
       <input type="text" class="modal-input" id="newEvalName" placeholder="e.g. David Bosserman">
@@ -219,6 +245,23 @@ button,input,select,textarea{font-family:inherit;}
   </div>
 </div>
 
+<div class="modal-bg" id="hcpEditorModal">
+  <div class="modal">
+    <div class="modal-title">Search HCP customers</div>
+    <div class="modal-row" style="font-size:12.5px;color:var(--text-dim);margin-top:-6px;">
+      Picking a match fills in Customer Name, Address, and ID — everything stays editable after.
+    </div>
+    <div class="modal-row hcp-search-wrap">
+      <input type="text" class="modal-input" id="hcpEditorSearch" placeholder="Start typing a customer name…" oninput="onHcpEditorSearch(this.value)">
+      <div class="hcp-search-status" id="hcpEditorStatus"></div>
+      <div class="hcp-results" id="hcpEditorResults" style="display:none"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeHcpEditorSearch()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -227,8 +270,38 @@ var SUPABASE_URL = "https://hpgwwegjsxyxovdattoc.supabase.co";
 var SUPABASE_KEY = "sb_publishable_D2PqYQoJjZ8koEM9NPvmeg_KB_Wa66H";
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Deploy nageo-evals-hcp-search-function.ts as an Edge Function (see the
+// deployment notes at the top of that file), then paste its exact URL here.
+var HCP_SEARCH_URL = SUPABASE_URL + "/functions/v1/nageo-evals-hcp-search";
+
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function showToast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},3200); }
+
+// ── HCP customer search — shared between "New Evaluation" and the editor's
+// "Search HCP" button. Returns a plain array of {hcpId,name,address,phone,email}. ──
+async function searchHcp(query){
+  if (!query || query.trim().length < 2) return [];
+  try {
+    var res = await fetch(HCP_SEARCH_URL + '?q=' + encodeURIComponent(query.trim()), {
+      headers: { 'Authorization': 'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY }
+    });
+    var data = await res.json();
+    if (data.error) { console.warn('[hcp search]', data.error); return []; }
+    return data.customers || [];
+  } catch (e) {
+    console.warn('[hcp search] failed', e);
+    return [];
+  }
+}
+function hcpResultsHtml(customers){
+  if (!customers.length) return '<div class="hcp-empty">No matches yet.</div>';
+  return customers.map(function(c, i){
+    return '<div class="hcp-result" data-idx="'+i+'">'
+      + '<div class="hcp-result-name">'+esc(c.name)+'</div>'
+      + '<div class="hcp-result-sub">'+esc(c.address || c.phone || c.email || 'No address on file')+'</div>'
+      + '</div>';
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════════════
 // TEMPLATES — each field is positioned as a % of the page image's own
@@ -357,15 +430,50 @@ async function deleteEval(id, name){
 }
 
 // ── New evaluation modal ──
+var newEvalHcpMatches = [];
+var newEvalHcpAddress = '';
+var newEvalHcpTimer = null;
 function openNewEvalModal(){
   document.getElementById('newEvalName').value='';
   document.getElementById('newEvalIdNumber').value='';
+  document.getElementById('newEvalHcpSearch').value='';
+  document.getElementById('newEvalHcpResults').style.display='none';
+  document.getElementById('newEvalHcpPicked').style.display='none';
+  document.getElementById('newEvalHcpStatus').textContent='';
+  newEvalHcpMatches = []; newEvalHcpAddress = '';
   var sel = document.getElementById('newEvalTemplate');
   sel.innerHTML = Object.keys(TEMPLATES).map(function(k){ return '<option value="'+k+'">'+esc(TEMPLATES[k].name)+'</option>'; }).join('');
   document.getElementById('newEvalModal').classList.add('open');
-  setTimeout(function(){ document.getElementById('newEvalName').focus(); }, 50);
+  setTimeout(function(){ document.getElementById('newEvalHcpSearch').focus(); }, 50);
 }
 function closeNewEvalModal(){ document.getElementById('newEvalModal').classList.remove('open'); }
+function onNewEvalHcpSearch(value){
+  clearTimeout(newEvalHcpTimer);
+  var status = document.getElementById('newEvalHcpStatus');
+  var results = document.getElementById('newEvalHcpResults');
+  if (!value || value.trim().length < 2) { results.style.display='none'; status.textContent=''; return; }
+  status.textContent = 'Searching…';
+  newEvalHcpTimer = setTimeout(async function(){
+    newEvalHcpMatches = await searchHcp(value);
+    status.textContent = newEvalHcpMatches.length ? '' : 'No matches — you can still fill in the fields below by hand.';
+    results.innerHTML = hcpResultsHtml(newEvalHcpMatches);
+    results.style.display = 'block';
+    results.querySelectorAll('.hcp-result').forEach(function(el){
+      el.onclick = function(){ pickNewEvalHcpMatch(parseInt(el.dataset.idx, 10)); };
+    });
+  }, 350);
+}
+function pickNewEvalHcpMatch(idx){
+  var c = newEvalHcpMatches[idx];
+  if (!c) return;
+  document.getElementById('newEvalName').value = c.name || '';
+  document.getElementById('newEvalIdNumber').value = c.hcpId || '';
+  newEvalHcpAddress = c.address || '';
+  document.getElementById('newEvalHcpResults').style.display='none';
+  var picked = document.getElementById('newEvalHcpPicked');
+  picked.style.display='flex';
+  picked.textContent = '✓ Filled from HCP: ' + (c.name || '') + (c.address ? ' — '+c.address : '');
+}
 async function createNewEval(){
   var name = document.getElementById('newEvalName').value.trim();
   var idNumber = document.getElementById('newEvalIdNumber').value.trim();
@@ -373,7 +481,7 @@ async function createNewEval(){
   if (!name) { showToast('Enter a customer name first.'); return; }
   var btn = document.getElementById('newEvalGoBtn');
   btn.disabled = true; btn.textContent = 'Creating…';
-  var fields = { customerName: name, projectId: idNumber, date: new Date().toISOString().slice(0,10) };
+  var fields = { customerName: name, projectId: idNumber, customerAddress: newEvalHcpAddress, date: new Date().toISOString().slice(0,10) };
   var r = await sb.from('evaluations').insert({
     template_id: templateId, customer_name: name, customer_number: idNumber,
     fields: fields, created_by: currentUser.name
@@ -415,6 +523,51 @@ async function openEditor(id){
 function backToDashboard(){
   saveNow(false);
   showDashboard();
+}
+
+// ── Search HCP from inside the editor — fills Customer Name / Address /
+// ID Number on the evaluation you already have open. Everything it fills
+// in is a normal field afterward, so it's just as editable as anything typed by hand. ──
+var hcpEditorMatches = [];
+var hcpEditorTimer = null;
+function openHcpEditorSearch(){
+  document.getElementById('hcpEditorSearch').value='';
+  document.getElementById('hcpEditorResults').style.display='none';
+  document.getElementById('hcpEditorStatus').textContent='';
+  hcpEditorMatches = [];
+  document.getElementById('hcpEditorModal').classList.add('open');
+  setTimeout(function(){ document.getElementById('hcpEditorSearch').focus(); }, 50);
+}
+function closeHcpEditorSearch(){ document.getElementById('hcpEditorModal').classList.remove('open'); }
+function onHcpEditorSearch(value){
+  clearTimeout(hcpEditorTimer);
+  var status = document.getElementById('hcpEditorStatus');
+  var results = document.getElementById('hcpEditorResults');
+  if (!value || value.trim().length < 2) { results.style.display='none'; status.textContent=''; return; }
+  status.textContent = 'Searching…';
+  hcpEditorTimer = setTimeout(async function(){
+    hcpEditorMatches = await searchHcp(value);
+    status.textContent = hcpEditorMatches.length ? '' : 'No matches found.';
+    results.innerHTML = hcpResultsHtml(hcpEditorMatches);
+    results.style.display = 'block';
+    results.querySelectorAll('.hcp-result').forEach(function(el){
+      el.onclick = function(){ pickHcpEditorMatch(parseInt(el.dataset.idx, 10)); };
+    });
+  }, 350);
+}
+function pickHcpEditorMatch(idx){
+  var c = hcpEditorMatches[idx];
+  if (!c) return;
+  currentFields.customerName = c.name || currentFields.customerName;
+  currentFields.customerAddress = c.address || currentFields.customerAddress;
+  if (c.hcpId) currentFields.projectId = c.hcpId;
+  dirty = true;
+  renderForm();
+  renderPreview();
+  document.getElementById('editorCustName').textContent = currentFields.customerName || 'Untitled';
+  setSaveStatus('pending');
+  closeHcpEditorSearch();
+  showToast('Filled in from HCP — review and adjust as needed.');
 }
 
 // Groups fields (in template field order) under their group headers, for the form panel.
