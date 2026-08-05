@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAGeo Evaluations</title>
+<link rel="icon" type="image/png" href="icons/icon-hub.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#060d1a;--navy2:#0d1f38;--navy3:#123055;
+  --green:#43a047;--green-light:#8fe396;--green-deep:#1b6b2e;
+  --text:#f4f7fc;--text-dim:rgba(244,247,252,.6);--text-dimmer:rgba(244,247,252,.36);
+  --glass:rgba(255,255,255,.05);--glass-border:rgba(255,255,255,.09);--glass-hover:rgba(255,255,255,.08);
+  --danger:#dc2626;--radius:16px;
+}
+html,body{height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:
+    radial-gradient(ellipse 900px 600px at 10% -5%, rgba(67,160,71,.12), transparent 55%),
+    radial-gradient(ellipse 800px 700px at 100% 0%, rgba(18,48,85,.55), transparent 60%),
+    var(--navy);
+  color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:8px;}
+
+/* ── Login ── */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+.login-card{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(20px);border-radius:24px;padding:2.6rem 2.2rem;width:400px;max-width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.login-badge{width:58px;height:58px;border-radius:16px;overflow:hidden;margin:0 auto 16px;box-shadow:0 8px 24px rgba(67,160,71,.3);}
+.login-badge img{width:100%;height:100%;object-fit:cover;display:block;}
+.login-title{font-size:24px;font-weight:800;margin-bottom:4px;letter-spacing:-.3px;}
+.login-title span{color:var(--green-light);}
+.login-sub{font-size:14px;color:var(--text-dim);margin-bottom:1.8rem;}
+.pin-input{width:100%;padding:16px;border:1px solid var(--glass-border);border-radius:12px;font-size:24px;text-align:center;letter-spacing:10px;background:rgba(255,255,255,.04);color:var(--text);margin-bottom:14px;}
+.pin-input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(67,160,71,.2);}
+.login-btn{width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:background .15s;}
+.login-btn:hover{background:var(--green-deep);}
+.login-error{font-size:13px;color:#f87171;margin-top:12px;}
+
+/* ── App shell ── */
+#app{display:none;}
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:14px 24px;flex-wrap:wrap;
+  background:linear-gradient(90deg,var(--navy2),var(--navy3));border-bottom:1px solid var(--glass-border);
+  position:sticky;top:0;z-index:50;
+}
+.topbar-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.2px;}
+.topbar-badge{width:32px;height:32px;border-radius:9px;overflow:hidden;flex-shrink:0;}
+.topbar-badge img{width:100%;height:100%;object-fit:cover;display:block;}
+.topbar-brand span{color:var(--green-light);}
+.spacer{flex:1;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);transition:all .15s;white-space:nowrap;}
+.btn:hover{background:var(--glass-hover);}
+.btn-accent{background:var(--green);border-color:var(--green);color:#fff;}
+.btn-accent:hover{background:var(--green-deep);}
+.btn-sm{padding:8px 12px;font-size:13px;}
+.topbar-user{font-size:13px;color:var(--text-dim);}
+
+/* ── Dashboard ── */
+#dashboardView{max-width:1000px;margin:0 auto;padding:2rem 1.25rem 4rem;}
+.dash-hdr{display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.dash-title{font-size:26px;font-weight:800;letter-spacing:-.5px;flex:1;}
+.dash-search{position:relative;width:260px;max-width:100%;}
+.dash-search input{width:100%;padding:11px 14px 11px 38px;border:1px solid var(--glass-border);border-radius:11px;background:var(--glass);color:var(--text);font-size:14px;}
+.dash-search input:focus{outline:none;border-color:var(--green);}
+.dash-search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5;font-size:13px;}
+.dash-list{display:flex;flex-direction:column;gap:10px;}
+.dash-row{
+  display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:16px;
+  background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;transition:all .15s;
+}
+.dash-row:hover{background:var(--glass-hover);border-color:rgba(67,160,71,.35);transform:translateY(-1px);}
+.dash-row-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--green),var(--green-deep));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;}
+.dash-row-main{flex:1;min-width:0;}
+.dash-row-name{font-size:16px;font-weight:700;margin-bottom:2px;}
+.dash-row-meta{font-size:12.5px;color:var(--text-dim);}
+.dash-row-tmpl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green-light);background:rgba(67,160,71,.14);padding:4px 10px;border-radius:999px;white-space:nowrap;}
+.dash-row-del{width:34px;height:34px;border-radius:9px;border:1px solid var(--glass-border);background:transparent;color:var(--text-dimmer);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s;flex-shrink:0;}
+.dash-row-del:hover{background:rgba(220,38,38,.16);border-color:rgba(220,38,38,.4);color:#fca5a5;}
+.dash-empty{padding:4rem 1rem;text-align:center;color:var(--text-dimmer);}
+.dash-empty-icon{font-size:48px;margin-bottom:14px;opacity:.5;}
+
+/* ── New evaluation modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(6,13,26,.7);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:1rem;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--navy2);border:1px solid var(--glass-border);border-radius:20px;padding:1.8rem;width:420px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:1.2rem;}
+.modal-row{margin-bottom:1rem;}
+.modal-label{font-size:13px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
+.modal-input,.modal-select{width:100%;padding:12px 14px;border:1px solid var(--glass-border);border-radius:10px;font-size:15px;background:rgba(255,255,255,.04);color:var(--text);}
+.modal-input:focus,.modal-select:focus{outline:none;border-color:var(--green);}
+.modal-select option{background:var(--navy2);color:var(--text);}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:1.4rem;}
+.modal-cancel{padding:11px 16px;border:none;border-radius:10px;background:var(--glass);color:var(--text-dim);cursor:pointer;font-size:14px;font-weight:600;}
+.modal-go{padding:11px 18px;border:none;border-radius:10px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;font-weight:700;}
+.modal-go:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── Editor ── */
+#editorView{display:none;}
+.editor-topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--navy2);border-bottom:1px solid var(--glass-border);position:sticky;top:0;z-index:40;flex-wrap:wrap;}
+.editor-back{display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;}
+.editor-back:hover{background:var(--glass-hover);}
+.editor-cust{font-size:15px;font-weight:700;}
+.editor-cust-sub{font-size:12px;color:var(--text-dimmer);}
+.save-status{font-size:12.5px;color:var(--text-dimmer);display:flex;align-items:center;gap:6px;}
+.save-dot{width:7px;height:7px;border-radius:50%;background:var(--green-light);}
+.save-dot.saving{background:#facc15;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.editor-body{display:flex;min-height:calc(100vh - 61px);}
+.editor-form{width:400px;min-width:340px;max-width:400px;border-right:1px solid var(--glass-border);padding:1.5rem;overflow-y:auto;max-height:calc(100vh - 61px);position:sticky;top:61px;}
+.form-group{margin-bottom:1.8rem;}
+.form-group-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--green-light);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--glass-border);}
+.field-row{margin-bottom:14px;}
+.field-label{font-size:12.5px;color:var(--text-dim);margin-bottom:5px;font-weight:600;display:block;}
+.field-input{
+  width:100%;padding:10px 12px;border:1px solid var(--glass-border);border-radius:9px;
+  background:rgba(255,255,255,.04);color:var(--text);font-size:14px;transition:border-color .15s;
+}
+.field-input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(67,160,71,.15);}
+.editor-preview{flex:1;padding:2rem;display:flex;flex-direction:column;align-items:center;gap:2rem;overflow-y:auto;max-height:calc(100vh - 61px);background:rgba(0,0,0,.15);}
+.page{position:relative;width:100%;max-width:780px;aspect-ratio:1103/1426;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:#fff;}
+.page-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+.page-num{position:absolute;left:10px;bottom:10px;font-size:1.6cqw;color:rgba(255,255,255,.5);font-weight:700;background:rgba(0,0,0,.35);padding:.4cqw 1cqw;border-radius:6px;z-index:5;}
+.field-overlay{
+  position:absolute;display:flex;overflow:hidden;line-height:1.15;white-space:pre-wrap;word-break:break-word;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;pointer-events:none;
+}
+.field-cover{position:absolute;pointer-events:none;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--navy2);border:1px solid var(--glass-border);color:var(--text);padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.4);}
+.toast.show{opacity:1;}
+
+@media(max-width:820px){
+  .editor-body{flex-direction:column;}
+  .editor-form{width:100%;max-width:none;border-right:none;border-bottom:1px solid var(--glass-border);position:static;max-height:none;}
+  .editor-preview{max-height:none;}
+}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-badge"><img src="icons/icon-hub.png" alt="NAGeo" onerror="this.parentElement.style.display='none'"></div>
+    <div class="login-title">NAGeo <span>Evaluations</span></div>
+    <div class="login-sub">Customer proposal builder</div>
+    <input type="password" class="pin-input" id="pinInput" placeholder="PIN" maxlength="6" inputmode="numeric">
+    <button class="login-btn" onclick="doLogin()">Sign in</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand"><div class="topbar-badge"><img src="icons/icon-hub.png" alt="" onerror="this.parentElement.style.display='none'"></div>NAGeo <span>Evaluations</span></div>
+    <div class="spacer"></div>
+    <div class="topbar-user">Hi, <strong id="topbarName"></strong></div>
+    <button class="btn btn-sm" onclick="doLogout()">Sign out</button>
+  </div>
+
+  <div id="dashboardView">
+    <div class="dash-hdr">
+      <div class="dash-title">Evaluations</div>
+      <div class="dash-search">
+        <span class="dash-search-icon">🔍</span>
+        <input type="text" id="dashSearch" placeholder="Search by customer or phone…" oninput="renderDashboard()">
+      </div>
+      <button class="btn btn-accent" onclick="openNewEvalModal()">+ New Evaluation</button>
+    </div>
+    <div class="dash-list" id="dashList"></div>
+  </div>
+
+  <div id="editorView">
+    <div class="editor-topbar">
+      <button class="editor-back" onclick="backToDashboard()">← Back</button>
+      <div>
+        <div class="editor-cust" id="editorCustName">—</div>
+        <div class="editor-cust-sub" id="editorCustSub"></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="save-status" id="saveStatus"><span class="save-dot" id="saveDot"></span><span id="saveStatusText">Saved</span></div>
+      <button class="btn btn-sm" onclick="saveNow(true)">Save now</button>
+      <button class="btn btn-accent btn-sm" id="exportBtn" onclick="exportPDF()">⬇ Export PDF</button>
+    </div>
+    <div class="editor-body">
+      <div class="editor-form" id="editorForm"></div>
+      <div class="editor-preview" id="editorPreview"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="newEvalModal">
+  <div class="modal">
+    <div class="modal-title">New Evaluation</div>
+    <div class="modal-row">
+      <div class="modal-label">Customer name</div>
+      <input type="text" class="modal-input" id="newEvalName" placeholder="e.g. David Bosserman">
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">Customer phone</div>
+      <input type="tel" class="modal-input" id="newEvalPhone" placeholder="e.g. (571) 555-0134">
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">Template</div>
+      <select class="modal-select" id="newEvalTemplate"></select>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeNewEvalModal()">Cancel</button>
+      <button class="modal-go" id="newEvalGoBtn" onclick="createNewEval()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Same Supabase project as the rest of the NAGeo tools (hub schedule, leads) ──
+var SUPABASE_URL = "https://hpgwwegjsxyxovdattoc.supabase.co";
+var SUPABASE_KEY = "sb_publishable_D2PqYQoJjZ8koEM9NPvmeg_KB_Wa66H";
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},3200); }
+
+// ══════════════════════════════════════════════════════════
+// TEMPLATES — each field is positioned as a % of the page image's own
+// box (1103×1426px native), so it scales perfectly at any display size.
+// fontPx is the font size at native 1103px-wide rendering; it's converted
+// to cqw (container-query width units) so text scales with the page too.
+// A field with page:null is metadata only (shown in the form, not printed
+// on any page) — used for the customer phone number.
+// A field with cover:true paints an opaque patch over baked-in example
+// text from the original design (e.g. the sample "60" / "$92") before
+// drawing the live value on top.
+// ══════════════════════════════════════════════════════════
+var TEMPLATES = {
+  t1: {
+    name: "Custom Geothermal Investment Proposal",
+    pages: ["pages/t1-p1.jpg","pages/t1-p2.jpg","pages/t1-p3.jpg","pages/t1-p4.jpg","pages/t1-p5.jpg","pages/t1-p6.jpg"],
+    fields: [
+      { key:"customerPhone", label:"Customer Phone", group:"Customer Info", page:null, type:"tel" },
+
+      { key:"customerName", label:"Customer Name", group:"Page 1 — Cover", page:0, type:"text", x:22.5,y:76.2,w:34,h:3.4, fontPx:25, color:"#1a1a1a", weight:700, align:"left" },
+      { key:"customerAddress", label:"Customer Address", group:"Page 1 — Cover", page:0, type:"text", x:22.5,y:80.0,w:34,h:3.4, fontPx:21, color:"#1a1a1a", weight:500, align:"left" },
+      { key:"projectId", label:"Project ID", group:"Page 1 — Cover", page:0, type:"text", x:67.0,y:75.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
+      { key:"date", label:"Date", group:"Page 1 — Cover", page:0, type:"date", x:67.0,y:82.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
+
+      { key:"currentAnnualCost", label:"Current System — Annual Cost", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:9,y:53.2,w:29,h:5.6, fontPx:34, color:"#0d2c5c", weight:800, align:"center" },
+      { key:"newAnnualCost", label:"New Geothermal System — Annual Cost", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:60,y:53.2,w:29,h:5.6, fontPx:34, color:"#1b6b2e", weight:800, align:"center" },
+      { key:"annualSavings", label:"Annual Energy Savings", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:5,y:70.5,w:40,h:4.6, fontPx:32, color:"#0d2c5c", weight:800, align:"center" },
+      { key:"projectedSavings20yr", label:"Projected Savings Over 20 Years", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:54,y:68.0,w:38,h:4.6, fontPx:30, color:"#0d2c5c", weight:800, align:"center" },
+
+      { key:"leaseMonthly", label:"Lease — Monthly Payment", group:"Page 6 — Payment Options", page:5, type:"currency", x:8,y:32.0,w:35,h:4.2, fontPx:34, color:"#ffffff", weight:800, align:"left" },
+      { key:"leaseFullSystemValue", label:"Lease — Full System Value", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:16.0,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
+      { key:"leasePaymentsOver6Years", label:"Lease — Payments Over 6 Years", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:23.8,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
+      { key:"leaseBuyoutYear6", label:"Lease — Estimated Buyout (Year 6)", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:31.7,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
+      { key:"leaseTotalInvestment", label:"Lease — Total Investment", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:39.4,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
+      { key:"leaseTotalSavings", label:"Lease — Total Savings vs. Paying Cash", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:47.6,w:13,h:4.2, fontPx:20, color:"#1b6b2e", weight:800, align:"right", cover:true, coverColor:"#E3FFC2" },
+      { key:"loanMonthly", label:"Loan — Monthly Payment", group:"Page 6 — Payment Options", page:5, type:"currency", x:12,y:64.2,w:32,h:3.4, fontPx:30, color:"#0d2c5c", weight:800, align:"center" },
+      { key:"loanMaxAmount", label:"Loan — Maximum Amount", group:"Page 6 — Payment Options", page:5, type:"currency", x:82,y:63.3,w:14,h:3.1, fontPx:17, color:"#0d2c5c", weight:700, align:"center", cover:true, coverColor:"#E3FFC2" },
+      { key:"loanAmountDue", label:"Loan — Amount Due at Install", group:"Page 6 — Payment Options", page:5, type:"currency", x:82,y:67.4,w:14,h:3.3, fontPx:17, color:"#0d2c5c", weight:700, align:"center", cover:true, coverColor:"#E3FFC2" },
+      { key:"grecScore", label:"GREC Score", group:"Page 6 — Payment Options", page:5, type:"number", x:20.5,y:90.6,w:8,h:1.9, fontPx:15, color:"#1a1a1a", weight:700, align:"left", cover:true, coverColor:"#ffffff", placeholder:"60" },
+      { key:"grecValue", label:"GREC Value / Year", group:"Page 6 — Payment Options", page:5, type:"currency", x:19.5,y:92.1,w:9,h:2.0, fontPx:15, color:"#1a1a1a", weight:700, align:"left", cover:true, coverColor:"#ffffff", placeholder:"92" },
+      { key:"utilityRebateRange", label:"Typical Utility Rebate Range", group:"Page 6 — Payment Options", page:5, type:"text", x:73,y:93.7,w:25,h:2.1, fontPx:15, color:"#1a1a1a", weight:600, align:"center", placeholder:"e.g. $500 – $1,500" }
+    ]
+  }
+};
+
+// ── Auth (same users table as the Leads site) ──
+var currentUser = null, users = [];
+async function loadUsers(){ var r = await sb.from('users').select('*').order('name'); users = r.data || []; }
+async function initAuth(){
+  var saved = localStorage.getItem('nageo_evals_user');
+  if (saved) { currentUser = JSON.parse(saved); showApp(); }
+  else { await loadUsers(); }
+}
+async function doLogin(){
+  var pin = document.getElementById('pinInput').value.trim();
+  if (!pin) { document.getElementById('loginError').textContent = 'Enter your PIN.'; return; }
+  if (!users.length) await loadUsers();
+  var user = users.find(function(u){ return u.pin === pin; });
+  if (!user) { document.getElementById('loginError').textContent = 'PIN not recognized.'; document.getElementById('pinInput').value=''; return; }
+  currentUser = user;
+  localStorage.setItem('nageo_evals_user', JSON.stringify(user));
+  showApp();
+}
+document.getElementById('pinInput').addEventListener('keydown', function(e){ if (e.key==='Enter') doLogin(); });
+function doLogout(){
+  currentUser = null; localStorage.removeItem('nageo_evals_user');
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('pinInput').value='';
+}
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('topbarName').textContent = currentUser.name;
+  showDashboard();
+}
+
+// ── Dashboard ──
+var evaluations = [];
+async function loadEvaluations(){
+  var r = await sb.from('evaluations').select('*').order('updated_at', { ascending:false });
+  if (r.error) { console.warn('[evals] load failed', r.error); evaluations = []; showToast('Could not load evaluations — see Setup notes in the file header.'); return; }
+  evaluations = r.data || [];
+}
+function initials(name){ return (name||'').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2) || '?'; }
+function timeAgo(ts){
+  if (!ts) return '';
+  var d = Math.floor((Date.now()-new Date(ts))/1000);
+  if (d<60) return 'just now';
+  if (d<3600) return Math.floor(d/60)+'m ago';
+  if (d<86400) return Math.floor(d/3600)+'h ago';
+  return Math.floor(d/86400)+'d ago';
+}
+async function showDashboard(){
+  document.getElementById('editorView').style.display='none';
+  document.getElementById('dashboardView').style.display='block';
+  stopAutosave();
+  await loadEvaluations();
+  renderDashboard();
+}
+function renderDashboard(){
+  var q = (document.getElementById('dashSearch').value||'').toLowerCase();
+  var list = evaluations.filter(function(e){
+    if (!q) return true;
+    return ((e.customer_name||'')+' '+(e.customer_phone||'')).toLowerCase().includes(q);
+  });
+  var el = document.getElementById('dashList');
+  if (!list.length) {
+    el.innerHTML = '<div class="dash-empty"><div class="dash-empty-icon">📋</div>' + (evaluations.length ? 'No evaluations match your search.' : 'No evaluations yet — click "New Evaluation" to create your first one.') + '</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(e){
+    var tmpl = TEMPLATES[e.template_id];
+    return '<div class="dash-row" onclick="openEditor(\''+e.id+'\')">'
+      + '<div class="dash-row-icon">'+initials(e.customer_name)+'</div>'
+      + '<div class="dash-row-main"><div class="dash-row-name">'+esc(e.customer_name||'Untitled')+'</div>'
+      + '<div class="dash-row-meta">'+esc(e.customer_phone||'No phone on file')+' · updated '+timeAgo(e.updated_at)+'</div></div>'
+      + '<div class="dash-row-tmpl">'+esc(tmpl?tmpl.name:e.template_id)+'</div>'
+      + '<button class="dash-row-del" onclick="event.stopPropagation();deleteEval(\''+e.id+'\',\''+esc(e.customer_name||'this evaluation').replace(/'/g,"\\'")+'\')" title="Delete">✕</button>'
+      + '</div>';
+  }).join('');
+}
+async function deleteEval(id, name){
+  if (!confirm('Delete the evaluation for '+name+'? This can\'t be undone.')) return;
+  await sb.from('evaluations').delete().eq('id', id);
+  showToast('Deleted.');
+  await showDashboard();
+}
+
+// ── New evaluation modal ──
+function openNewEvalModal(){
+  document.getElementById('newEvalName').value='';
+  document.getElementById('newEvalPhone').value='';
+  var sel = document.getElementById('newEvalTemplate');
+  sel.innerHTML = Object.keys(TEMPLATES).map(function(k){ return '<option value="'+k+'">'+esc(TEMPLATES[k].name)+'</option>'; }).join('');
+  document.getElementById('newEvalModal').classList.add('open');
+  setTimeout(function(){ document.getElementById('newEvalName').focus(); }, 50);
+}
+function closeNewEvalModal(){ document.getElementById('newEvalModal').classList.remove('open'); }
+async function createNewEval(){
+  var name = document.getElementById('newEvalName').value.trim();
+  var phone = document.getElementById('newEvalPhone').value.trim();
+  var templateId = document.getElementById('newEvalTemplate').value;
+  if (!name) { showToast('Enter a customer name first.'); return; }
+  var btn = document.getElementById('newEvalGoBtn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  var fields = { customerName: name, customerPhone: phone, date: new Date().toISOString().slice(0,10) };
+  var r = await sb.from('evaluations').insert({
+    template_id: templateId, customer_name: name, customer_phone: phone,
+    fields: fields, created_by: currentUser.name
+  }).select().single();
+  btn.disabled = false; btn.textContent = 'Create';
+  if (r.error) { showToast('Could not create evaluation. See Setup notes.'); console.warn(r.error); return; }
+  closeNewEvalModal();
+  openEditor(r.data.id);
+}
+
+// ══════════════════════════════════════════════════════════
+// EDITOR
+// ══════════════════════════════════════════════════════════
+var editingEval = null;   // the full row from Supabase
+var editingTemplate = null;
+var currentFields = {};   // in-memory field values — the source of truth while editing
+var autosaveTimer = null;
+var dirty = false;
+
+async function openEditor(id){
+  var r = await sb.from('evaluations').select('*').eq('id', id).single();
+  if (r.error || !r.data) { showToast('Could not open that evaluation.'); return; }
+  editingEval = r.data;
+  editingTemplate = TEMPLATES[editingEval.template_id];
+  if (!editingTemplate) { showToast('Unknown template: '+editingEval.template_id); return; }
+  currentFields = Object.assign({}, editingEval.fields || {});
+  dirty = false;
+
+  document.getElementById('dashboardView').style.display='none';
+  document.getElementById('editorView').style.display='block';
+  document.getElementById('editorCustName').textContent = editingEval.customer_name || 'Untitled';
+  document.getElementById('editorCustSub').textContent = editingTemplate.name;
+
+  renderForm();
+  renderPreview();
+  setSaveStatus('saved');
+  startAutosave();
+}
+function backToDashboard(){
+  saveNow(false);
+  showDashboard();
+}
+
+// Groups fields (in template field order) under their group headers, for the form panel.
+function renderForm(){
+  var wrap = document.getElementById('editorForm');
+  var groups = [];
+  var byGroup = {};
+  editingTemplate.fields.forEach(function(f){
+    if (!byGroup[f.group]) { byGroup[f.group] = []; groups.push(f.group); }
+    byGroup[f.group].push(f);
+  });
+  var html = '';
+  groups.forEach(function(g){
+    html += '<div class="form-group"><div class="form-group-title">'+esc(g)+'</div>';
+    byGroup[g].forEach(function(f){
+      var val = currentFields[f.key] != null ? currentFields[f.key] : '';
+      var inputType = (f.type==='date') ? 'date' : (f.type==='number'||f.type==='currency') ? 'text' : (f.type==='tel') ? 'tel' : 'text';
+      html += '<div class="field-row"><label class="field-label">'+esc(f.label)+'</label>'
+        + '<input class="field-input" type="'+inputType+'" id="f_'+f.key+'" value="'+esc(val)+'" placeholder="'+esc(f.placeholder||'')+'" oninput="onFieldInput(\''+f.key+'\', this.value)">'
+        + '</div>';
+    });
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+}
+
+// Builds the page previews with absolutely-positioned overlay nodes. Each
+// overlay keeps a data-key so onFieldInput can update just that one node.
+function renderPreview(){
+  var wrap = document.getElementById('editorPreview');
+  var fieldsByPage = {};
+  editingTemplate.fields.forEach(function(f){
+    if (f.page == null) return;
+    (fieldsByPage[f.page] = fieldsByPage[f.page] || []).push(f);
+  });
+  var html = '';
+  editingTemplate.pages.forEach(function(src, i){
+    html += '<div class="page"><img class="page-bg" src="'+src+'" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
+    (fieldsByPage[i]||[]).forEach(function(f){
+      if (f.cover) {
+        html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
+      }
+      var justify = f.align==='center' ? 'center' : f.align==='right' ? 'flex-end' : 'flex-start';
+      var textAlign = f.align || 'left';
+      var fontCqw = (f.fontPx/1103*100).toFixed(3);
+      html += '<div class="field-overlay" data-key="'+f.key+'" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;'
+        + 'align-items:center;justify-content:'+justify+';text-align:'+textAlign+';'
+        + 'font-size:'+fontCqw+'cqw;color:'+f.color+';font-weight:'+f.weight+';">'
+        + esc(formatFieldValue(f, currentFields[f.key]))
+        + '</div>';
+    });
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+}
+
+function formatFieldValue(f, raw){
+  if (raw == null || raw === '') return f.cover ? '' : '';
+  if (f.type === 'currency') {
+    var n = parseFloat(String(raw).replace(/[^0-9.\-]/g,''));
+    if (isNaN(n)) return raw;
+    return '$' + n.toLocaleString('en-US', { maximumFractionDigits: (n % 1) ? 2 : 0 });
+  }
+  if (f.type === 'date') {
+    var d = new Date(raw + 'T00:00:00');
+    if (isNaN(d.getTime())) return raw;
+    return d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+  }
+  return raw;
+}
+
+// Targeted update only — never re-renders the form, so the input the user
+// is actively typing in is never touched and never loses focus/cursor.
+function onFieldInput(key, value){
+  currentFields[key] = value;
+  dirty = true;
+  var f = editingTemplate.fields.find(function(x){ return x.key === key; });
+  if (!f) return;
+  var overlay = document.querySelector('.field-overlay[data-key="'+key+'"]');
+  if (overlay) overlay.textContent = formatFieldValue(f, value);
+  if (key === 'customerName') document.getElementById('editorCustName').textContent = value || 'Untitled';
+  setSaveStatus('pending');
+}
+
+// ── Autosave — runs on a fixed 30s clock in the background. It only ever
+// reads from currentFields (already kept in sync by onFieldInput) and never
+// touches the DOM inputs, so it can never interrupt someone mid-edit. ──
+function startAutosave(){
+  stopAutosave();
+  autosaveTimer = setInterval(function(){ if (dirty) saveNow(false); }, 30000);
+  window.addEventListener('beforeunload', beforeUnloadSave);
+}
+function stopAutosave(){
+  if (autosaveTimer) { clearInterval(autosaveTimer); autosaveTimer = null; }
+  window.removeEventListener('beforeunload', beforeUnloadSave);
+}
+function beforeUnloadSave(){ if (dirty) saveNow(false); }
+async function saveNow(manual){
+  if (!editingEval) return;
+  if (!dirty && !manual) return;
+  setSaveStatus('saving');
+  var name = currentFields.customerName || editingEval.customer_name;
+  var phone = currentFields.customerPhone != null ? currentFields.customerPhone : editingEval.customer_phone;
+  var r = await sb.from('evaluations').update({
+    fields: currentFields, customer_name: name, customer_phone: phone, updated_at: new Date().toISOString()
+  }).eq('id', editingEval.id);
+  if (r.error) { console.warn('[evals] save failed', r.error); setSaveStatus('error'); return; }
+  editingEval.customer_name = name; editingEval.customer_phone = phone; editingEval.fields = Object.assign({}, currentFields);
+  dirty = false;
+  setSaveStatus('saved');
+}
+function setSaveStatus(state){
+  var dot = document.getElementById('saveDot'); var txt = document.getElementById('saveStatusText');
+  if (!dot) return;
+  dot.classList.toggle('saving', state==='saving');
+  if (state==='saving') txt.textContent = 'Saving…';
+  else if (state==='pending') txt.textContent = 'Unsaved changes';
+  else if (state==='error') txt.textContent = 'Save failed — will retry';
+  else txt.textContent = 'Saved ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+// ── PDF export — renders each page node (image + overlays) to canvas via
+// html2canvas, then stitches them into a single Letter-size PDF via jsPDF. ──
+async function exportPDF(){
+  var btn = document.getElementById('exportBtn');
+  btn.disabled = true; var origText = btn.textContent; btn.textContent = 'Exporting…';
+  try {
+    var pages = document.querySelectorAll('#editorPreview .page');
+    var pdf = new window.jspdf.jsPDF({ unit:'in', format:'letter', orientation:'portrait' });
+    for (var i = 0; i < pages.length; i++) {
+      var canvas = await html2canvas(pages[i], { scale:2, useCORS:true, backgroundColor:'#ffffff' });
+      var imgData = canvas.toDataURL('image/jpeg', 0.92);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, 8.5, 11);
+    }
+    var fname = (currentFields.customerName || editingEval.customer_name || 'evaluation').replace(/[^a-z0-9]+/gi,'-') + '-proposal.pdf';
+    pdf.save(fname);
+    showToast('PDF downloaded.');
+  } catch (e) {
+    console.error(e);
+    showToast('PDF export failed — see console.');
+  }
+  btn.disabled = false; btn.textContent = origText;
+}
+
+initAuth();
+</script>
+</body>
+</html>
