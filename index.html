@@ -159,7 +159,8 @@ button,input,select,textarea{font-family:inherit;}
 .field-input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(67,160,71,.15);}
 .field-input[type=color]{padding:4px;height:40px;cursor:pointer;}
 .editor-preview{flex:1;padding:2rem;display:flex;flex-direction:column;align-items:center;gap:2rem;overflow-y:auto;max-height:calc(100vh - 61px);background:rgba(0,0,0,.15);}
-.page{position:relative;width:100%;max-width:780px;aspect-ratio:1103/1426;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:#fff;}
+.page{position:relative;width:100%;max-width:1040px;aspect-ratio:1103/1426;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:#fff;cursor:zoom-in;transition:box-shadow .15s;}
+.page:hover{box-shadow:0 24px 64px rgba(0,0,0,.65);}
 .page-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
 .page-num{position:absolute;left:10px;bottom:10px;font-size:1.6cqw;color:rgba(255,255,255,.5);font-weight:700;background:rgba(0,0,0,.35);padding:.4cqw 1cqw;border-radius:6px;z-index:5;}
 .field-overlay{
@@ -171,6 +172,15 @@ button,input,select,textarea{font-family:inherit;}
 /* ── Toast ── */
 .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--navy2);border:1px solid var(--glass-border);color:var(--text);padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.4);}
 .toast.show{opacity:1;}
+
+/* ── Page zoom lightbox — click any preview page to inspect it at full
+   detail, since the inline stacked preview is necessarily a compromise
+   between size and being able to see all six pages at once. ── */
+.modal-bg#pageZoomModal{padding:2.5rem;}
+.page-zoom-wrap .page{width:auto;height:92vh;max-width:94vw;max-height:92vh;cursor:default;}
+.page-zoom-wrap .page:hover{box-shadow:0 20px 50px rgba(0,0,0,.5);}
+.page-zoom-close{position:fixed;top:22px;right:26px;padding:10px 18px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;z-index:410;}
+.page-zoom-close:hover{background:var(--glass-hover);}
 
 /* ── Templates list ── */
 #templatesView{display:none;max-width:1000px;margin:0 auto;padding:2rem 1.25rem 4rem;}
@@ -408,6 +418,11 @@ button,input,select,textarea{font-family:inherit;}
       </div>
     </div>
   </div>
+</div>
+
+<div class="modal-bg" id="pageZoomModal" onclick="if(event.target===this)closePageZoom()">
+  <button class="page-zoom-close" onclick="closePageZoom()">✕ Close</button>
+  <div class="page-zoom-wrap" id="pageZoomBody"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -797,34 +812,56 @@ function renderForm(){
   wrap.innerHTML = html;
 }
 
-// Builds the page previews with absolutely-positioned overlay nodes. Each
-// overlay keeps a data-key so onFieldInput can update just that one node.
-function renderPreview(){
-  var wrap = document.getElementById('editorPreview');
+// Builds the inner HTML for one page (background image + its field
+// overlays) — shared by the inline stacked preview and the full-viewport
+// zoom lightbox, so both always show the exact same thing.
+function buildPageHtml(i, src, fieldsByPage){
+  var html = '<img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
+  (fieldsByPage[i]||[]).forEach(function(f){
+    if (f.cover) {
+      html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
+    }
+    var justify = f.align==='center' ? 'center' : f.align==='right' ? 'flex-end' : 'flex-start';
+    var textAlign = f.align || 'left';
+    var fontCqw = (f.fontPx/1103*100).toFixed(3);
+    html += '<div class="field-overlay" data-key="'+f.key+'" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;'
+      + 'align-items:center;justify-content:'+justify+';text-align:'+textAlign+';'
+      + 'font-size:'+fontCqw+'cqw;color:'+f.color+';font-weight:'+f.weight+';">'
+      + esc(formatFieldValue(f, currentFields[f.key]))
+      + '</div>';
+  });
+  return html;
+}
+function fieldsGroupedByPage(){
   var fieldsByPage = {};
   editingTemplate.fields.forEach(function(f){
     if (f.page == null) return;
     (fieldsByPage[f.page] = fieldsByPage[f.page] || []).push(f);
   });
+  return fieldsByPage;
+}
+function renderPreview(){
+  var wrap = document.getElementById('editorPreview');
+  var fieldsByPage = fieldsGroupedByPage();
   var html = '';
   (editingTemplate.pages||[]).forEach(function(src, i){
-    html += '<div class="page"><img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
-    (fieldsByPage[i]||[]).forEach(function(f){
-      if (f.cover) {
-        html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
-      }
-      var justify = f.align==='center' ? 'center' : f.align==='right' ? 'flex-end' : 'flex-start';
-      var textAlign = f.align || 'left';
-      var fontCqw = (f.fontPx/1103*100).toFixed(3);
-      html += '<div class="field-overlay" data-key="'+f.key+'" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;'
-        + 'align-items:center;justify-content:'+justify+';text-align:'+textAlign+';'
-        + 'font-size:'+fontCqw+'cqw;color:'+f.color+';font-weight:'+f.weight+';">'
-        + esc(formatFieldValue(f, currentFields[f.key]))
-        + '</div>';
-    });
-    html += '</div>';
+    html += '<div class="page" onclick="openPageZoom('+i+')">' + buildPageHtml(i, src, fieldsByPage) + '</div>';
   });
   wrap.innerHTML = html;
+}
+// Click any page in the stack to inspect it at (close to) full screen —
+// the inline stacked preview necessarily has to compromise between size
+// and fitting six pages on screen at once, so this is the "let me actually
+// read this" view.
+function openPageZoom(i){
+  if (!editingTemplate || !editingTemplate.pages || !editingTemplate.pages[i]) return;
+  var fieldsByPage = fieldsGroupedByPage();
+  document.getElementById('pageZoomBody').innerHTML = '<div class="page">' + buildPageHtml(i, editingTemplate.pages[i], fieldsByPage) + '</div>';
+  document.getElementById('pageZoomModal').classList.add('open');
+}
+function closePageZoom(){
+  document.getElementById('pageZoomModal').classList.remove('open');
+  document.getElementById('pageZoomBody').innerHTML = '';
 }
 
 function formatFieldValue(f, raw){
@@ -849,8 +886,9 @@ function onFieldInput(key, value){
   dirty = true;
   var f = editingTemplate.fields.find(function(x){ return x.key === key; });
   if (!f) return;
-  var overlay = document.querySelector('.field-overlay[data-key="'+key+'"]');
-  if (overlay) overlay.textContent = formatFieldValue(f, value);
+  document.querySelectorAll('.field-overlay[data-key="'+key+'"]').forEach(function(overlay){
+    overlay.textContent = formatFieldValue(f, value);
+  });
   if (key === 'customerName') document.getElementById('editorCustName').textContent = value || 'Untitled';
   setSaveStatus('pending');
 }
@@ -901,10 +939,14 @@ async function exportPDF(){
     var pages = document.querySelectorAll('#editorPreview .page');
     var pdf = new window.jspdf.jsPDF({ unit:'in', format:'letter', orientation:'portrait' });
     for (var i = 0; i < pages.length; i++) {
-      var canvas = await html2canvas(pages[i], { scale:2, useCORS:true, backgroundColor:'#ffffff' });
-      var imgData = canvas.toDataURL('image/jpeg', 0.92);
+      // scale:3 + PNG (lossless) instead of the previous scale:2 + JPEG —
+      // JPEG's compression artifacts were exactly what made small text and
+      // the white cover patches look muddy/doubled once exported. PNG costs
+      // a bigger file size, worth it for a client-facing document.
+      var canvas = await html2canvas(pages[i], { scale:3, useCORS:true, backgroundColor:'#ffffff' });
+      var imgData = canvas.toDataURL('image/png');
       if (i > 0) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, 0, 8.5, 11);
+      pdf.addImage(imgData, 'PNG', 0, 0, 8.5, 11);
     }
     var fname = (currentFields.customerName || editingEval.customer_name || 'evaluation').replace(/[^a-z0-9]+/gi,'-') + '-proposal.pdf';
     pdf.save(fname);
