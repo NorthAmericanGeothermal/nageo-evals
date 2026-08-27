@@ -55,6 +55,10 @@ button,input,select,textarea{font-family:inherit;}
 .topbar-badge{width:32px;height:32px;border-radius:9px;overflow:hidden;flex-shrink:0;}
 .topbar-badge img{width:100%;height:100%;object-fit:cover;display:block;}
 .topbar-brand span{color:var(--green-light);}
+.topbar-nav{display:flex;gap:6px;margin-left:6px;}
+.topbar-nav-btn{padding:8px 14px;border-radius:9px;font-size:13.5px;font-weight:700;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text-dim);transition:all .15s;}
+.topbar-nav-btn:hover{background:var(--glass-hover);color:var(--text);}
+.topbar-nav-btn.active{background:var(--glass);border-color:var(--glass-border);color:var(--text);}
 .spacer{flex:1;}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);transition:all .15s;white-space:nowrap;}
 .btn:hover{background:var(--glass-hover);}
@@ -100,6 +104,8 @@ button,input,select,textarea{font-family:inherit;}
 .modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:1.4rem;}
 .modal-cancel{padding:11px 16px;border:none;border-radius:10px;background:var(--glass);color:var(--text-dim);cursor:pointer;font-size:14px;font-weight:600;}
 .modal-go{padding:11px 18px;border:none;border-radius:10px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;font-weight:700;}
+.modal-go:disabled{opacity:.4;cursor:not-allowed;}
+.modal-hint{font-size:12.5px;color:var(--text-dim);margin-top:-6px;margin-bottom:1rem;line-height:1.4;}
 
 /* ── HCP customer search — used in the New Evaluation modal and the editor's Search HCP popover ── */
 .hcp-search-wrap{position:relative;}
@@ -118,9 +124,8 @@ button,input,select,textarea{font-family:inherit;}
   display:flex;align-items:center;gap:8px;margin-top:8px;padding:9px 12px;border-radius:9px;
   background:rgba(67,160,71,.14);border:1px solid rgba(67,160,71,.3);font-size:12.5px;color:var(--green-light);font-weight:600;
 }
-.modal-go:disabled{opacity:.4;cursor:not-allowed;}
 
-/* ── Editor ── */
+/* ── Editor (evaluation) ── */
 #editorView{display:none;}
 .editor-topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--navy2);border-bottom:1px solid var(--glass-border);position:sticky;top:0;z-index:40;flex-wrap:wrap;}
 .editor-back{display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;}
@@ -142,6 +147,7 @@ button,input,select,textarea{font-family:inherit;}
   background:rgba(255,255,255,.04);color:var(--text);font-size:14px;transition:border-color .15s;
 }
 .field-input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(67,160,71,.15);}
+.field-input[type=color]{padding:4px;height:40px;cursor:pointer;}
 .editor-preview{flex:1;padding:2rem;display:flex;flex-direction:column;align-items:center;gap:2rem;overflow-y:auto;max-height:calc(100vh - 61px);background:rgba(0,0,0,.15);}
 .page{position:relative;width:100%;max-width:780px;aspect-ratio:1103/1426;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:#fff;}
 .page-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
@@ -156,6 +162,55 @@ button,input,select,textarea{font-family:inherit;}
 .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--navy2);border:1px solid var(--glass-border);color:var(--text);padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.4);}
 .toast.show{opacity:1;}
 
+/* ── Templates list ── */
+#templatesView{display:none;max-width:1000px;margin:0 auto;padding:2rem 1.25rem 4rem;}
+.templates-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
+.tpl-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden;transition:all .15s;}
+.tpl-card:hover{border-color:rgba(67,160,71,.35);}
+.tpl-card-thumb{aspect-ratio:1103/1426;background:rgba(0,0,0,.3);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.tpl-card-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.tpl-card-noimg{font-size:12.5px;color:var(--text-dimmer);text-align:center;padding:1rem;}
+.tpl-card-name{font-size:15px;font-weight:700;padding:12px 14px 2px;cursor:pointer;}
+.tpl-card-meta{font-size:12px;color:var(--text-dim);padding:0 14px 10px;}
+.tpl-card-actions{display:flex;gap:6px;padding:0 14px 14px;}
+.tpl-card-actions .btn{flex:1;justify-content:center;}
+
+/* ── Template editor ── */
+#templateEditorView{display:none;}
+.tpl-editor-topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--navy2);border-bottom:1px solid var(--glass-border);position:sticky;top:0;z-index:40;flex-wrap:wrap;}
+.tpl-editor-name-input{background:transparent;border:1px solid transparent;color:var(--text);font-size:15px;font-weight:700;padding:6px 8px;border-radius:8px;min-width:160px;}
+.tpl-editor-name-input:hover,.tpl-editor-name-input:focus{border-color:var(--glass-border);background:rgba(255,255,255,.04);outline:none;}
+.tpl-editor-body{display:flex;min-height:calc(100vh - 61px);}
+.tpl-pages-col{width:150px;min-width:150px;border-right:1px solid var(--glass-border);padding:1rem;overflow-y:auto;max-height:calc(100vh - 61px);position:sticky;top:61px;display:flex;flex-direction:column;gap:10px;}
+.tpl-page-thumb{position:relative;aspect-ratio:1103/1426;border-radius:9px;overflow:hidden;border:2px solid var(--glass-border);cursor:pointer;background:rgba(0,0,0,.3);}
+.tpl-page-thumb.active{border-color:var(--green);}
+.tpl-page-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.tpl-page-num{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:700;background:rgba(0,0,0,.55);color:#fff;padding:2px 6px;border-radius:5px;}
+.tpl-page-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:6px;border:none;background:rgba(0,0,0,.55);color:#fca5a5;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.tpl-page-del:hover{background:rgba(220,38,38,.5);color:#fff;}
+.tpl-page-add{aspect-ratio:1103/1426;border-radius:9px;border:2px dashed var(--glass-border);display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--text-dim);cursor:pointer;padding:.5rem;}
+.tpl-page-add:hover{border-color:var(--green);color:var(--green-light);}
+.tpl-canvas-col{flex:1;padding:2rem;display:flex;flex-direction:column;align-items:center;overflow-y:auto;max-height:calc(100vh - 61px);background:rgba(0,0,0,.15);}
+.tpl-canvas-hint{font-size:12.5px;color:var(--text-dimmer);margin-bottom:14px;text-align:center;max-width:500px;}
+.tpl-canvas-wrap{width:100%;max-width:780px;}
+.tpl-canvas{position:relative;width:100%;aspect-ratio:1103/1426;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:#fff;cursor:crosshair;user-select:none;}
+.tpl-canvas .page-bg{pointer-events:none;}
+.tpl-field-box{position:absolute;border:2px solid rgba(67,160,71,.85);background:rgba(67,160,71,.16);cursor:move;}
+.tpl-field-box.selected{border-color:#facc15;background:rgba(250,204,21,.18);z-index:5;}
+.tpl-field-box.drawing{border-style:dashed;pointer-events:none;}
+.tpl-field-tag{position:absolute;top:-1.8cqw;left:-2px;font-size:1.3cqw;font-weight:700;background:rgba(67,160,71,.9);color:#fff;padding:.2cqw .8cqw;border-radius:4px;white-space:nowrap;pointer-events:none;}
+.tpl-field-box.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
+.tpl-field-handle{position:absolute;right:-6px;bottom:-6px;width:13px;height:13px;border-radius:50%;background:#facc15;border:2px solid #1a1a1a;cursor:nwse-resize;}
+.tpl-panel-col{width:320px;min-width:280px;border-left:1px solid var(--glass-border);padding:1.5rem;overflow-y:auto;max-height:calc(100vh - 61px);position:sticky;top:61px;}
+.tpl-panel-hint{font-size:13px;color:var(--text-dim);line-height:1.5;padding-top:1rem;}
+.tpl-save-status{font-size:12.5px;color:var(--text-dimmer);display:flex;align-items:center;gap:6px;}
+
+@media(max-width:900px){
+  .tpl-editor-body{flex-direction:column;}
+  .tpl-pages-col{width:100%;flex-direction:row;overflow-x:auto;max-height:none;position:static;}
+  .tpl-page-thumb,.tpl-page-add{min-width:90px;width:90px;}
+  .tpl-panel-col{width:100%;border-left:none;border-top:1px solid var(--glass-border);position:static;max-height:none;}
+}
 @media(max-width:820px){
   .editor-body{flex-direction:column;}
   .editor-form{width:100%;max-width:none;border-right:none;border-bottom:1px solid var(--glass-border);position:static;max-height:none;}
@@ -179,6 +234,10 @@ button,input,select,textarea{font-family:inherit;}
 <div id="app">
   <div class="topbar">
     <div class="topbar-brand"><div class="topbar-badge"><img src="icons/icon-hub.png" alt="" onerror="this.parentElement.style.display='none'"></div>NAGeo <span>Evaluations</span></div>
+    <div class="topbar-nav">
+      <button class="topbar-nav-btn" id="navEvals" onclick="showDashboard()">Evaluations</button>
+      <button class="topbar-nav-btn" id="navTemplates" onclick="showTemplatesList()">Templates</button>
+    </div>
     <div class="spacer"></div>
     <div class="topbar-user">Hi, <strong id="topbarName"></strong></div>
     <button class="btn btn-sm" onclick="doLogout()">Sign out</button>
@@ -194,6 +253,14 @@ button,input,select,textarea{font-family:inherit;}
       <button class="btn btn-accent" onclick="openNewEvalModal()">+ New Evaluation</button>
     </div>
     <div class="dash-list" id="dashList"></div>
+  </div>
+
+  <div id="templatesView">
+    <div class="dash-hdr">
+      <div class="dash-title">Templates</div>
+      <button class="btn btn-accent" onclick="openNewTemplateModal()">+ New Template</button>
+    </div>
+    <div class="templates-grid" id="templatesGrid"></div>
   </div>
 
   <div id="editorView">
@@ -212,6 +279,24 @@ button,input,select,textarea{font-family:inherit;}
     <div class="editor-body">
       <div class="editor-form" id="editorForm"></div>
       <div class="editor-preview" id="editorPreview"></div>
+    </div>
+  </div>
+
+  <div id="templateEditorView">
+    <div class="tpl-editor-topbar">
+      <button class="editor-back" onclick="backToTemplatesList()">← Back</button>
+      <input type="text" class="tpl-editor-name-input" id="tplEditorName" onchange="renameTemplate(this.value)">
+      <div class="spacer"></div>
+      <div class="tpl-save-status" id="tplSaveStatus"><span class="save-dot" id="tplSaveDot"></span><span id="tplSaveStatusText">Saved</span></div>
+      <button class="btn btn-accent btn-sm" onclick="saveTemplateNow()">Save now</button>
+    </div>
+    <div class="tpl-editor-body">
+      <div class="tpl-pages-col" id="tplPagesList"></div>
+      <div class="tpl-canvas-col">
+        <div class="tpl-canvas-hint">Click and drag on the page to place a new field. Click an existing box to edit it, drag to move, or use the yellow handle to resize.</div>
+        <div class="tpl-canvas-wrap" id="tplCanvasWrap"></div>
+      </div>
+      <div class="tpl-panel-col" id="tplFieldPanel"></div>
     </div>
   </div>
 </div>
@@ -262,6 +347,21 @@ button,input,select,textarea{font-family:inherit;}
   </div>
 </div>
 
+<div class="modal-bg" id="newTemplateModal">
+  <div class="modal">
+    <div class="modal-title">New Template</div>
+    <div class="modal-row">
+      <div class="modal-label">Template name</div>
+      <input type="text" class="modal-input" id="newTemplateName" placeholder="e.g. Commercial Retrofit Proposal">
+    </div>
+    <div class="modal-hint">You'll add page images and place fields on the next screen.</div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeNewTemplateModal()">Cancel</button>
+      <button class="modal-go" onclick="createTemplate()">Create</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -269,12 +369,13 @@ button,input,select,textarea{font-family:inherit;}
 var SUPABASE_URL = "https://hpgwwegjsxyxovdattoc.supabase.co";
 var SUPABASE_KEY = "sb_publishable_D2PqYQoJjZ8koEM9NPvmeg_KB_Wa66H";
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var TEMPLATE_BUCKET = "eval-templates";
 
 // Deploy nageo-evals-hcp-search-function.ts as an Edge Function (see the
 // deployment notes at the top of that file), then paste its exact URL here.
 var HCP_SEARCH_URL = SUPABASE_URL + "/functions/v1/nageo-evals-hcp-search";
 
-function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function showToast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},3200); }
 
 // ── HCP customer search — shared between "New Evaluation" and the editor's
@@ -304,46 +405,27 @@ function hcpResultsHtml(customers){
 }
 
 // ══════════════════════════════════════════════════════════
-// TEMPLATES — each field is positioned as a % of the page image's own
-// box (1103×1426px native), so it scales perfectly at any display size.
+// TEMPLATES — now stored in Supabase (table: templates) instead of hardcoded
+// in this file. Each row: { id, name, pages: [url, url, ...], fields: [...] }.
+// Field shape is unchanged from before: each is positioned as a % of the
+// page image's own box, so it scales perfectly at any display size.
 // fontPx is the font size at native 1103px-wide rendering; it's converted
 // to cqw (container-query width units) so text scales with the page too.
-// A field with page:null is metadata only (shown in the form, not printed
-// on any page) — used for the customer phone number.
 // A field with cover:true paints an opaque patch over baked-in example
-// text from the original design (e.g. the sample "60" / "$92") before
-// drawing the live value on top.
+// text from the original design before drawing the live value on top.
+//
+// Templates load from Supabase at startup and whenever the New Evaluation
+// modal or Templates tab opens, so new templates and edits show up without
+// a code deploy. Use the "Templates" tab in the app to create templates,
+// upload page images, and place fields — no GitHub upload needed anymore.
 // ══════════════════════════════════════════════════════════
-var TEMPLATES = {
-  t1: {
-    name: "Custom Geothermal Investment Proposal",
-    pages: ["pages/t1-p1.jpg","pages/t1-p2.jpg","pages/t1-p3.jpg","pages/t1-p4.jpg","pages/t1-p5.jpg","pages/t1-p6.jpg"],
-    fields: [
-      { key:"customerName", label:"Customer Name", group:"Page 1 — Cover", page:0, type:"text", x:22.5,y:76.2,w:34,h:3.4, fontPx:25, color:"#1a1a1a", weight:700, align:"left" },
-      { key:"customerAddress", label:"Customer Address", group:"Page 1 — Cover", page:0, type:"text", x:22.5,y:80.0,w:34,h:3.4, fontPx:21, color:"#1a1a1a", weight:500, align:"left" },
-      { key:"projectId", label:"Project / Customer ID Number", group:"Page 1 — Cover", page:0, type:"text", x:67.0,y:75.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
-      { key:"date", label:"Date", group:"Page 1 — Cover", page:0, type:"date", x:67.0,y:82.6,w:21,h:3.7, fontPx:19, color:"#1a1a1a", weight:700, align:"left" },
-
-      { key:"currentAnnualCost", label:"Current System — Annual Cost", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:9,y:53.2,w:29,h:5.6, fontPx:34, color:"#0d2c5c", weight:800, align:"center" },
-      { key:"newAnnualCost", label:"New Geothermal System — Annual Cost", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:60,y:53.2,w:29,h:5.6, fontPx:34, color:"#1b6b2e", weight:800, align:"center" },
-      { key:"annualSavings", label:"Annual Energy Savings", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:5,y:70.5,w:40,h:4.6, fontPx:32, color:"#0d2c5c", weight:800, align:"center" },
-      { key:"projectedSavings20yr", label:"Projected Savings Over 20 Years", group:"Page 2 — Savings Comparison", page:1, type:"currency", x:54,y:68.0,w:38,h:4.6, fontPx:30, color:"#0d2c5c", weight:800, align:"center" },
-
-      { key:"leaseMonthly", label:"Lease — Monthly Payment", group:"Page 6 — Payment Options", page:5, type:"currency", x:8,y:32.0,w:35,h:4.2, fontPx:34, color:"#ffffff", weight:800, align:"left" },
-      { key:"leaseFullSystemValue", label:"Lease — Full System Value", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:16.0,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
-      { key:"leasePaymentsOver6Years", label:"Lease — Payments Over 6 Years", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:23.8,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
-      { key:"leaseBuyoutYear6", label:"Lease — Estimated Buyout (Year 6)", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:31.7,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
-      { key:"leaseTotalInvestment", label:"Lease — Total Investment", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:39.4,w:12,h:3.0, fontPx:19, color:"#0d2c5c", weight:700, align:"right" },
-      { key:"leaseTotalSavings", label:"Lease — Total Savings vs. Paying Cash", group:"Page 6 — Payment Options", page:5, type:"currency", x:86,y:47.6,w:13,h:4.2, fontPx:20, color:"#1b6b2e", weight:800, align:"right", cover:true, coverColor:"#E3FFC2" },
-      { key:"loanMonthly", label:"Loan — Monthly Payment", group:"Page 6 — Payment Options", page:5, type:"currency", x:12,y:64.2,w:32,h:3.4, fontPx:30, color:"#0d2c5c", weight:800, align:"center" },
-      { key:"loanMaxAmount", label:"Loan — Maximum Amount", group:"Page 6 — Payment Options", page:5, type:"currency", x:82,y:63.3,w:14,h:3.1, fontPx:17, color:"#0d2c5c", weight:700, align:"center", cover:true, coverColor:"#E3FFC2" },
-      { key:"loanAmountDue", label:"Loan — Amount Due at Install", group:"Page 6 — Payment Options", page:5, type:"currency", x:82,y:67.4,w:14,h:3.3, fontPx:17, color:"#0d2c5c", weight:700, align:"center", cover:true, coverColor:"#E3FFC2" },
-      { key:"grecScore", label:"GREC Score", group:"Page 6 — Payment Options", page:5, type:"number", x:20.5,y:90.6,w:8,h:1.9, fontPx:15, color:"#1a1a1a", weight:700, align:"left", cover:true, coverColor:"#ffffff", placeholder:"60" },
-      { key:"grecValue", label:"GREC Value / Year", group:"Page 6 — Payment Options", page:5, type:"currency", x:19.5,y:92.1,w:9,h:2.0, fontPx:15, color:"#1a1a1a", weight:700, align:"left", cover:true, coverColor:"#ffffff", placeholder:"92" },
-      { key:"utilityRebateRange", label:"Typical Utility Rebate Range", group:"Page 6 — Payment Options", page:5, type:"text", x:73,y:93.7,w:25,h:2.1, fontPx:15, color:"#1a1a1a", weight:600, align:"center", placeholder:"e.g. $500 – $1,500" }
-    ]
-  }
-};
+var templates = [];
+function tplById(id){ return templates.find(function(t){ return t.id === id; }); }
+async function loadTemplates(){
+  var r = await sb.from('templates').select('*').order('name');
+  if (r.error) { console.warn('[templates] load failed', r.error); templates = []; showToast('Could not load templates: ' + r.error.message); return; }
+  templates = r.data || [];
+}
 
 // ── Auth (same users table as the Leads site) ──
 var currentUser = null, users = [];
@@ -370,11 +452,18 @@ function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('pinInput').value='';
 }
-function showApp(){
+async function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('topbarName').textContent = currentUser.name;
+  await loadTemplates();
   showDashboard();
+}
+
+// ── Nav ──
+function setActiveNav(which){
+  document.getElementById('navEvals').classList.toggle('active', which==='evals');
+  document.getElementById('navTemplates').classList.toggle('active', which==='templates');
 }
 
 // ── Dashboard ──
@@ -395,7 +484,10 @@ function timeAgo(ts){
 }
 async function showDashboard(){
   document.getElementById('editorView').style.display='none';
+  document.getElementById('templatesView').style.display='none';
+  document.getElementById('templateEditorView').style.display='none';
   document.getElementById('dashboardView').style.display='block';
+  setActiveNav('evals');
   stopAutosave();
   await loadEvaluations();
   renderDashboard();
@@ -412,12 +504,12 @@ function renderDashboard(){
     return;
   }
   el.innerHTML = list.map(function(e){
-    var tmpl = TEMPLATES[e.template_id];
+    var tmpl = tplById(e.template_id);
     return '<div class="dash-row" onclick="openEditor(\''+e.id+'\')">'
       + '<div class="dash-row-icon">'+initials(e.customer_name)+'</div>'
       + '<div class="dash-row-main"><div class="dash-row-name">'+esc(e.customer_name||'Untitled')+'</div>'
       + '<div class="dash-row-meta">'+(e.customer_number ? 'ID# '+esc(e.customer_number) : 'No ID number on file')+' · updated '+timeAgo(e.updated_at)+'</div></div>'
-      + '<div class="dash-row-tmpl">'+esc(tmpl?tmpl.name:e.template_id)+'</div>'
+      + '<div class="dash-row-tmpl">'+esc(tmpl ? tmpl.name : 'Unknown template')+'</div>'
       + '<button class="dash-row-del" onclick="event.stopPropagation();deleteEval(\''+e.id+'\',\''+esc(e.customer_name||'this evaluation').replace(/'/g,"\\'")+'\')" title="Delete">✕</button>'
       + '</div>';
   }).join('');
@@ -433,7 +525,7 @@ async function deleteEval(id, name){
 var newEvalHcpMatches = [];
 var newEvalHcpAddress = '';
 var newEvalHcpTimer = null;
-function openNewEvalModal(){
+async function openNewEvalModal(){
   document.getElementById('newEvalName').value='';
   document.getElementById('newEvalIdNumber').value='';
   document.getElementById('newEvalHcpSearch').value='';
@@ -441,8 +533,16 @@ function openNewEvalModal(){
   document.getElementById('newEvalHcpPicked').style.display='none';
   document.getElementById('newEvalHcpStatus').textContent='';
   newEvalHcpMatches = []; newEvalHcpAddress = '';
+  await loadTemplates(); // pick up any templates created/edited since login
   var sel = document.getElementById('newEvalTemplate');
-  sel.innerHTML = Object.keys(TEMPLATES).map(function(k){ return '<option value="'+k+'">'+esc(TEMPLATES[k].name)+'</option>'; }).join('');
+  var btn = document.getElementById('newEvalGoBtn');
+  if (!templates.length) {
+    sel.innerHTML = '<option value="">No templates yet</option>';
+    btn.disabled = true;
+  } else {
+    sel.innerHTML = templates.map(function(t){ return '<option value="'+t.id+'">'+esc(t.name)+'</option>'; }).join('');
+    btn.disabled = false;
+  }
   document.getElementById('newEvalModal').classList.add('open');
   setTimeout(function(){ document.getElementById('newEvalHcpSearch').focus(); }, 50);
 }
@@ -479,6 +579,7 @@ async function createNewEval(){
   var idNumber = document.getElementById('newEvalIdNumber').value.trim();
   var templateId = document.getElementById('newEvalTemplate').value;
   if (!name) { showToast('Enter a customer name first.'); return; }
+  if (!templateId) { showToast('Create a template first, on the Templates tab.'); return; }
   var btn = document.getElementById('newEvalGoBtn');
   btn.disabled = true; btn.textContent = 'Creating…';
   var fields = { customerName: name, projectId: idNumber, customerAddress: newEvalHcpAddress, date: new Date().toISOString().slice(0,10) };
@@ -493,7 +594,7 @@ async function createNewEval(){
 }
 
 // ══════════════════════════════════════════════════════════
-// EDITOR
+// EVALUATION EDITOR
 // ══════════════════════════════════════════════════════════
 var editingEval = null;   // the full row from Supabase
 var editingTemplate = null;
@@ -505,12 +606,14 @@ async function openEditor(id){
   var r = await sb.from('evaluations').select('*').eq('id', id).single();
   if (r.error || !r.data) { showToast('Could not open that evaluation.'); return; }
   editingEval = r.data;
-  editingTemplate = TEMPLATES[editingEval.template_id];
-  if (!editingTemplate) { showToast('Unknown template: '+editingEval.template_id); return; }
+  if (!templates.length) await loadTemplates();
+  editingTemplate = tplById(editingEval.template_id);
+  if (!editingTemplate) { showToast('That evaluation\'s template no longer exists.'); return; }
   currentFields = Object.assign({}, editingEval.fields || {});
   dirty = false;
 
   document.getElementById('dashboardView').style.display='none';
+  document.getElementById('templatesView').style.display='none';
   document.getElementById('editorView').style.display='block';
   document.getElementById('editorCustName').textContent = editingEval.customer_name || 'Untitled';
   document.getElementById('editorCustSub').textContent = editingTemplate.name;
@@ -604,8 +707,8 @@ function renderPreview(){
     (fieldsByPage[f.page] = fieldsByPage[f.page] || []).push(f);
   });
   var html = '';
-  editingTemplate.pages.forEach(function(src, i){
-    html += '<div class="page"><img class="page-bg" src="'+src+'" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
+  (editingTemplate.pages||[]).forEach(function(src, i){
+    html += '<div class="page"><img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
     (fieldsByPage[i]||[]).forEach(function(f){
       if (f.cover) {
         html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
@@ -625,7 +728,7 @@ function renderPreview(){
 }
 
 function formatFieldValue(f, raw){
-  if (raw == null || raw === '') return f.cover ? '' : '';
+  if (raw == null || raw === '') return '';
   if (f.type === 'currency') {
     var n = parseFloat(String(raw).replace(/[^0-9.\-]/g,''));
     if (isNaN(n)) return raw;
@@ -711,6 +814,381 @@ async function exportPDF(){
     showToast('PDF export failed — see console.');
   }
   btn.disabled = false; btn.textContent = origText;
+}
+
+// ══════════════════════════════════════════════════════════
+// TEMPLATE MANAGER — create templates, upload page images straight to
+// Supabase Storage, and place fields by clicking and dragging on the page.
+// ══════════════════════════════════════════════════════════
+
+// ── Templates list ──
+async function showTemplatesList(){
+  document.getElementById('dashboardView').style.display='none';
+  document.getElementById('editorView').style.display='none';
+  document.getElementById('templateEditorView').style.display='none';
+  document.getElementById('templatesView').style.display='block';
+  setActiveNav('templates');
+  stopAutosave();
+  await loadTemplates();
+  renderTemplatesList();
+}
+function renderTemplatesList(){
+  var el = document.getElementById('templatesGrid');
+  if (!templates.length) { el.innerHTML = '<div class="dash-empty"><div class="dash-empty-icon">🗂️</div>No templates yet — click "New Template" to create one.</div>'; return; }
+  el.innerHTML = templates.map(function(t){
+    var thumb = (t.pages && t.pages[0]) || '';
+    var fieldCount = (t.fields||[]).length;
+    var pageCount = (t.pages||[]).length;
+    return '<div class="tpl-card">'
+      + '<div class="tpl-card-thumb" onclick="openTemplateEditor(\''+t.id+'\')">' + (thumb ? '<img src="'+esc(thumb)+'" crossorigin="anonymous">' : '<div class="tpl-card-noimg">No pages yet — click Edit to add some</div>') + '</div>'
+      + '<div class="tpl-card-name" onclick="openTemplateEditor(\''+t.id+'\')">'+esc(t.name)+'</div>'
+      + '<div class="tpl-card-meta">'+pageCount+' page'+(pageCount===1?'':'s')+' · '+fieldCount+' field'+(fieldCount===1?'':'s')+'</div>'
+      + '<div class="tpl-card-actions"><button class="btn btn-sm" onclick="openTemplateEditor(\''+t.id+'\')">Edit</button><button class="btn btn-sm" onclick="deleteTemplate(\''+t.id+'\',\''+esc(t.name).replace(/'/g,"\\'")+'\')" style="color:#fca5a5">Delete</button></div>'
+      + '</div>';
+  }).join('');
+}
+function openNewTemplateModal(){
+  document.getElementById('newTemplateName').value='';
+  document.getElementById('newTemplateModal').classList.add('open');
+  setTimeout(function(){ document.getElementById('newTemplateName').focus(); }, 50);
+}
+function closeNewTemplateModal(){ document.getElementById('newTemplateModal').classList.remove('open'); }
+async function createTemplate(){
+  var name = document.getElementById('newTemplateName').value.trim();
+  if (!name) { showToast('Enter a template name first.'); return; }
+  var r = await sb.from('templates').insert({ name: name, pages: [], fields: [] }).select().single();
+  if (r.error) { showToast('Could not create template: ' + r.error.message); return; }
+  closeNewTemplateModal();
+  templates.push(r.data);
+  openTemplateEditor(r.data.id);
+}
+async function deleteTemplate(id, name){
+  if (!confirm('Delete template "'+name+'"? Evaluations already created from it keep their saved data, but you won\'t be able to open or export them from this template anymore. This can\'t be undone.')) return;
+  await sb.from('templates').delete().eq('id', id);
+  showToast('Template deleted.');
+  await showTemplatesList();
+}
+
+// ── Template editor ──
+var editingTpl = null;      // local working copy of the template row
+var tplDirty = false;
+var activePageIdx = 0;
+var selectedFieldKey = null;
+var canvasDrag = null;
+
+function openTemplateEditor(id){
+  var t = tplById(id);
+  if (!t) { showToast('Template not found.'); return; }
+  editingTpl = JSON.parse(JSON.stringify(t)); // edit a local copy; Save writes it back
+  tplDirty = false;
+  activePageIdx = (editingTpl.pages && editingTpl.pages.length) ? 0 : -1;
+  selectedFieldKey = null;
+  document.getElementById('templatesView').style.display='none';
+  document.getElementById('templateEditorView').style.display='block';
+  document.getElementById('tplEditorName').value = editingTpl.name;
+  renderTplPagesList();
+  renderTplCanvas();
+  renderTplFieldPanel();
+  setTplSaveStatus('saved');
+}
+function backToTemplatesList(){
+  if (tplDirty && !confirm('You have unsaved changes to this template. Discard them?')) return;
+  document.getElementById('templateEditorView').style.display='none';
+  showTemplatesList();
+}
+function renameTemplate(newName){
+  newName = newName.trim();
+  if (!newName) { document.getElementById('tplEditorName').value = editingTpl.name; return; }
+  editingTpl.name = newName;
+  tplDirty = true; setTplSaveStatus('pending');
+}
+
+function renderTplPagesList(){
+  var el = document.getElementById('tplPagesList');
+  var html = (editingTpl.pages||[]).map(function(url, i){
+    return '<div class="tpl-page-thumb'+(i===activePageIdx?' active':'')+'" onclick="selectTplPage('+i+')">'
+      + '<img src="'+esc(url)+'" crossorigin="anonymous">'
+      + '<div class="tpl-page-num">Page '+(i+1)+'</div>'
+      + '<button class="tpl-page-del" onclick="event.stopPropagation();deleteTplPage('+i+')" title="Delete page">✕</button>'
+      + '</div>';
+  }).join('');
+  html += '<label class="tpl-page-add">+ Add page(s)<input type="file" accept="image/*" multiple style="display:none" onchange="onTplPageFiles(this.files);this.value=\'\';"></label>';
+  el.innerHTML = html;
+}
+function selectTplPage(i){
+  activePageIdx = i; selectedFieldKey = null;
+  renderTplPagesList(); renderTplCanvas(); renderTplFieldPanel();
+}
+async function onTplPageFiles(fileList){
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  showToast('Uploading ' + files.length + ' page image' + (files.length===1?'':'s') + '…');
+  editingTpl.pages = editingTpl.pages || [];
+  for (var i=0;i<files.length;i++){
+    var file = files[i];
+    var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    var path = editingTpl.id + '/' + Date.now() + '-' + i + '.' + ext;
+    var up = await sb.storage.from(TEMPLATE_BUCKET).upload(path, file, { upsert:true });
+    if (up.error) { showToast('Upload failed: ' + up.error.message); continue; }
+    var pub = sb.storage.from(TEMPLATE_BUCKET).getPublicUrl(path);
+    editingTpl.pages.push(pub.data.publicUrl);
+  }
+  if (activePageIdx === -1 && editingTpl.pages.length) activePageIdx = 0;
+  tplDirty = true;
+  renderTplPagesList(); renderTplCanvas();
+  setTplSaveStatus('pending');
+  await saveTemplateNow(); // persist immediately so an upload is never lost on navigation
+}
+function deleteTplPage(i){
+  if (!confirm('Delete this page? Any fields placed on it will be deleted too. This can\'t be undone.')) return;
+  editingTpl.pages.splice(i,1);
+  editingTpl.fields = (editingTpl.fields||[]).filter(function(f){ return f.page !== i; }).map(function(f){
+    if (f.page > i) f.page = f.page - 1;
+    return f;
+  });
+  if (activePageIdx >= editingTpl.pages.length) activePageIdx = editingTpl.pages.length - 1;
+  selectedFieldKey = null;
+  tplDirty = true;
+  renderTplPagesList(); renderTplCanvas(); renderTplFieldPanel();
+  setTplSaveStatus('pending');
+}
+
+function fieldsOnActivePage(){
+  return (editingTpl.fields||[]).filter(function(f){ return f.page === activePageIdx; });
+}
+function fieldByKey(key){ return (editingTpl.fields||[]).find(function(f){ return f.key === key; }); }
+
+function renderTplCanvas(){
+  var wrap = document.getElementById('tplCanvasWrap');
+  if (activePageIdx === -1 || !editingTpl.pages || !editingTpl.pages[activePageIdx]) {
+    wrap.innerHTML = '<div class="dash-empty">Add a page image on the left to start placing fields.</div>';
+    return;
+  }
+  var src = editingTpl.pages[activePageIdx];
+  var html = '<div class="tpl-canvas" id="tplCanvas" onmousedown="onCanvasMouseDown(event)">'
+    + '<img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" draggable="false">';
+  fieldsOnActivePage().forEach(function(f){
+    var sel = f.key === selectedFieldKey;
+    html += '<div class="tpl-field-box'+(sel?' selected':'')+'" data-key="'+esc(f.key)+'" '
+      + 'style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;" onmousedown="onFieldMouseDown(event,\''+f.key+'\')">'
+      + '<span class="tpl-field-tag">'+esc(f.label||f.key)+'</span>'
+      + (sel ? '<div class="tpl-field-handle" onmousedown="onHandleMouseDown(event,\''+f.key+'\')"></div>' : '')
+      + '</div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function canvasPct(e){
+  var canvas = document.getElementById('tplCanvas');
+  var r = canvas.getBoundingClientRect();
+  var x = (e.clientX - r.left) / r.width * 100;
+  var y = (e.clientY - r.top) / r.height * 100;
+  return { x: Math.max(0,Math.min(100,x)), y: Math.max(0,Math.min(100,y)) };
+}
+function round2(n){ return Math.round(n*100)/100; }
+function clampPct(v, max){ return Math.max(0, Math.min(max, v)); }
+
+function onCanvasMouseDown(e){
+  if (e.target.closest('.tpl-field-box')) return; // handled by onFieldMouseDown/onHandleMouseDown
+  var p = canvasPct(e);
+  canvasDrag = { mode:'draw', startX:p.x, startY:p.y, temp:{ x:p.x, y:p.y, w:0, h:0 } };
+  selectedFieldKey = null;
+  document.addEventListener('mousemove', onCanvasMouseMove);
+  document.addEventListener('mouseup', onCanvasMouseUp);
+}
+function onCanvasMouseMove(e){
+  if (!canvasDrag) return;
+  var p = canvasPct(e);
+  if (canvasDrag.mode === 'draw') {
+    var t = canvasDrag.temp;
+    t.x = Math.min(canvasDrag.startX, p.x); t.y = Math.min(canvasDrag.startY, p.y);
+    t.w = Math.abs(p.x - canvasDrag.startX); t.h = Math.abs(p.y - canvasDrag.startY);
+    drawTempBox(t);
+  } else if (canvasDrag.mode === 'move') {
+    var f = fieldByKey(canvasDrag.key);
+    if (!f) return;
+    var dx = p.x - canvasDrag.startX, dy = p.y - canvasDrag.startY;
+    f.x = round2(clampPct(canvasDrag.origX + dx, 100 - f.w));
+    f.y = round2(clampPct(canvasDrag.origY + dy, 100 - f.h));
+    updateFieldBoxDom(f);
+  } else if (canvasDrag.mode === 'resize') {
+    var f2 = fieldByKey(canvasDrag.key);
+    if (!f2) return;
+    var dw = p.x - canvasDrag.startX, dh = p.y - canvasDrag.startY;
+    f2.w = round2(Math.max(2, Math.min(100 - f2.x, canvasDrag.origW + dw)));
+    f2.h = round2(Math.max(1.5, Math.min(100 - f2.y, canvasDrag.origH + dh)));
+    updateFieldBoxDom(f2);
+  }
+}
+function onCanvasMouseUp(){
+  document.removeEventListener('mousemove', onCanvasMouseMove);
+  document.removeEventListener('mouseup', onCanvasMouseUp);
+  if (!canvasDrag) return;
+  if (canvasDrag.mode === 'draw') {
+    var t = canvasDrag.temp;
+    removeTempBox();
+    if (t.w > 1.5 && t.h > 1) addNewField(t.x, t.y, t.w, t.h);
+  } else {
+    tplDirty = true; setTplSaveStatus('pending');
+  }
+  canvasDrag = null;
+}
+function drawTempBox(t){
+  var canvas = document.getElementById('tplCanvas');
+  var el = document.getElementById('tplTempBox');
+  if (!el) { el = document.createElement('div'); el.id='tplTempBox'; el.className='tpl-field-box drawing'; canvas.appendChild(el); }
+  el.style.left=t.x+'%'; el.style.top=t.y+'%'; el.style.width=t.w+'%'; el.style.height=t.h+'%';
+}
+function removeTempBox(){ var el = document.getElementById('tplTempBox'); if (el) el.remove(); }
+function updateFieldBoxDom(f){
+  var el = document.querySelector('.tpl-field-box[data-key="'+f.key+'"]');
+  if (el) { el.style.left=f.x+'%'; el.style.top=f.y+'%'; el.style.width=f.w+'%'; el.style.height=f.h+'%'; }
+}
+
+function onFieldMouseDown(e, key){
+  e.stopPropagation();
+  var f = fieldByKey(key);
+  if (!f) return;
+  var wasSelected = selectedFieldKey === key;
+  selectedFieldKey = key;
+  if (!wasSelected) { renderTplCanvas(); renderTplFieldPanel(); }
+  var startClientX = e.clientX, startClientY = e.clientY;
+  var p = canvasPct(e);
+  canvasDrag = { mode:'move', key:key, startX:p.x, startY:p.y, origX:f.x, origY:f.y };
+  document.addEventListener('mousemove', onCanvasMouseMove);
+  function up(ev){
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('mousemove', onCanvasMouseMove);
+    var moved = Math.abs(ev.clientX-startClientX) >= 3 || Math.abs(ev.clientY-startClientY) >= 3;
+    if (moved) { tplDirty = true; setTplSaveStatus('pending'); }
+    canvasDrag = null;
+    renderTplCanvas();
+    if (!wasSelected) renderTplFieldPanel();
+  }
+  document.addEventListener('mouseup', up);
+}
+function onHandleMouseDown(e, key){
+  e.stopPropagation();
+  var f = fieldByKey(key);
+  if (!f) return;
+  var p = canvasPct(e);
+  canvasDrag = { mode:'resize', key:key, startX:p.x, startY:p.y, origW:f.w, origH:f.h };
+  document.addEventListener('mousemove', onCanvasMouseMove);
+  function up(){
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('mousemove', onCanvasMouseMove);
+    tplDirty = true; setTplSaveStatus('pending');
+    canvasDrag = null;
+    renderTplCanvas();
+  }
+  document.addEventListener('mouseup', up);
+}
+
+function slugify(s){
+  var parts = String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean);
+  if (!parts.length) return 'field';
+  return parts.map(function(w,i){ return i===0 ? w : (w.charAt(0).toUpperCase()+w.slice(1)); }).join('').slice(0,40);
+}
+function uniqueKey(base){
+  var key = base, n = 1;
+  var existing = (editingTpl.fields||[]).map(function(f){ return f.key; });
+  while (existing.indexOf(key) !== -1) { n++; key = base + n; }
+  return key;
+}
+function addNewField(x,y,w,h){
+  var key = uniqueKey('field');
+  var f = {
+    key:key, label:'New Field', group:'Page '+(activePageIdx+1), page:activePageIdx, type:'text',
+    x:round2(x), y:round2(y), w:round2(w), h:round2(h),
+    fontPx:18, color:'#1a1a1a', weight:600, align:'left'
+  };
+  editingTpl.fields = editingTpl.fields || [];
+  editingTpl.fields.push(f);
+  selectedFieldKey = key;
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+function deleteSelectedField(){
+  if (!selectedFieldKey) return;
+  if (!confirm('Delete this field? If it\'s used in any saved evaluations, its value just stops appearing on the form and in exports.')) return;
+  editingTpl.fields = (editingTpl.fields||[]).filter(function(f){ return f.key !== selectedFieldKey; });
+  selectedFieldKey = null;
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+
+function fld(label, type, key, val){
+  return '<div class="field-row"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="'+type+'" value="'+esc(val)+'" oninput="updField(\''+key+'\',this.value)"></div>';
+}
+function numFld(label,key,val){
+  return '<div style="flex:1"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="number" step="0.1" value="'+val+'" oninput="updField(\''+key+'\',parseFloat(this.value)||0)"></div>';
+}
+function renderTplFieldPanel(){
+  var el = document.getElementById('tplFieldPanel');
+  var f = selectedFieldKey ? fieldByKey(selectedFieldKey) : null;
+  if (!f) { el.innerHTML = '<div class="tpl-panel-hint">Click and drag on the page to add a field. Click an existing box to edit its label, type, and styling.</div>'; return; }
+  el.innerHTML =
+    '<div class="form-group-title">Field settings</div>'
+    + fld('Label (shown on the form)','text','label',f.label)
+    + fld('Key (used internally — avoid changing after evaluations exist)','text','key',f.key)
+    + '<div class="field-row"><label class="field-label">Type</label><select class="field-input" onchange="updField(\'type\',this.value)">'
+      + ['text','currency','number','date'].map(function(t){ return '<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+t+'</option>'; }).join('')
+      + '</select></div>'
+    + fld('Group (section header on the form)','text','group',f.group)
+    + fld('Placeholder (hint text)','text','placeholder',f.placeholder||'')
+    + '<div class="field-row" style="display:flex;gap:8px;">' + numFld('X %','x',f.x) + numFld('Y %','y',f.y) + '</div>'
+    + '<div class="field-row" style="display:flex;gap:8px;">' + numFld('W %','w',f.w) + numFld('H %','h',f.h) + '</div>'
+    + '<div class="field-row" style="display:flex;gap:8px;align-items:flex-end;">'
+      + numFld('Font px','fontPx',f.fontPx)
+      + '<div style="flex:1"><label class="field-label">Color</label><input class="field-input" type="color" value="'+(f.color||'#1a1a1a')+'" oninput="updField(\'color\',this.value)"></div>'
+    + '</div>'
+    + '<div class="field-row"><label class="field-label">Weight</label><select class="field-input" onchange="updField(\'weight\',parseInt(this.value,10))">'
+      + [400,500,600,700,800].map(function(w){ return '<option value="'+w+'"'+(f.weight===w?' selected':'')+'>'+w+'</option>'; }).join('')
+      + '</select></div>'
+    + '<div class="field-row"><label class="field-label">Align</label><select class="field-input" onchange="updField(\'align\',this.value)">'
+      + ['left','center','right'].map(function(a){ return '<option value="'+a+'"'+(f.align===a?' selected':'')+'>'+a+'</option>'; }).join('')
+      + '</select></div>'
+    + '<div class="field-row"><label class="field-label"><input type="checkbox" '+(f.cover?'checked':'')+' onchange="updField(\'cover\',this.checked)" style="margin-right:6px;"> Cover baked-in text first</label></div>'
+    + (f.cover ? '<div class="field-row"><label class="field-label">Cover color</label><input class="field-input" type="color" value="'+(f.coverColor||'#ffffff')+'" oninput="updField(\'coverColor\',this.value)"></div>' : '')
+    + '<button class="btn btn-sm" style="width:100%;color:#fca5a5;margin-top:8px;" onclick="deleteSelectedField()">Delete field</button>';
+}
+function updField(key, value){
+  var f = fieldByKey(selectedFieldKey);
+  if (!f) return;
+  if (key === 'key') {
+    var newKey = slugify(value) || f.key;
+    if (newKey !== f.key) {
+      if ((editingTpl.fields||[]).some(function(x){ return x!==f && x.key===newKey; })) { showToast('That key is already used by another field on this template.'); renderTplFieldPanel(); return; }
+      f.key = newKey; selectedFieldKey = newKey;
+    }
+  } else {
+    f[key] = value;
+  }
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+
+async function saveTemplateNow(){
+  if (!editingTpl) return;
+  setTplSaveStatus('saving');
+  var r = await sb.from('templates').update({
+    name: editingTpl.name, pages: editingTpl.pages, fields: editingTpl.fields, updated_at: new Date().toISOString()
+  }).eq('id', editingTpl.id);
+  if (r.error) { console.warn('[templates] save failed', r.error); setTplSaveStatus('error'); showToast('Save failed: ' + r.error.message); return; }
+  tplDirty = false; setTplSaveStatus('saved');
+  var idx = templates.findIndex(function(t){ return t.id === editingTpl.id; });
+  var fresh = JSON.parse(JSON.stringify(editingTpl));
+  if (idx !== -1) templates[idx] = fresh; else templates.push(fresh);
+}
+function setTplSaveStatus(state){
+  var dot = document.getElementById('tplSaveDot'); var txt = document.getElementById('tplSaveStatusText');
+  if (!dot) return;
+  dot.classList.toggle('saving', state==='saving');
+  if (state==='saving') txt.textContent = 'Saving…';
+  else if (state==='pending') txt.textContent = 'Unsaved changes';
+  else if (state==='error') txt.textContent = 'Save failed — click Save now to retry';
+  else txt.textContent = 'Saved';
 }
 
 initAuth();
