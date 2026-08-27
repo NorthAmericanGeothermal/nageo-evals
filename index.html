@@ -8,6 +8,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- pdf.js — lets template page uploads accept a PDF directly (each page gets
+     rendered to an image client-side and uploaded like any other page image),
+     instead of requiring pages to be pre-exported as individual jpg/png files. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -191,13 +195,19 @@ button,input,select,textarea{font-family:inherit;}
 .tpl-page-add{aspect-ratio:1103/1426;border-radius:9px;border:2px dashed var(--glass-border);display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--text-dim);cursor:pointer;padding:.5rem;}
 .tpl-page-add:hover{border-color:var(--green);color:var(--green-light);}
 .tpl-canvas-col{flex:1;padding:2rem;display:flex;flex-direction:column;align-items:center;overflow-y:auto;max-height:calc(100vh - 61px);background:rgba(0,0,0,.15);}
-.tpl-canvas-hint{font-size:12.5px;color:var(--text-dimmer);margin-bottom:14px;text-align:center;max-width:500px;}
+.tpl-canvas-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;max-width:780px;margin-bottom:14px;flex-wrap:wrap;}
+.tpl-canvas-hint{font-size:12.5px;color:var(--text-dimmer);text-align:left;max-width:460px;flex:1;min-width:220px;}
+.tpl-ai-check-btn{flex-shrink:0;}
 .tpl-canvas-wrap{width:100%;max-width:780px;}
 .tpl-canvas{position:relative;width:100%;aspect-ratio:1103/1426;container-type:inline-size;box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:6px;overflow:hidden;background:#fff;cursor:crosshair;user-select:none;}
 .tpl-canvas .page-bg{pointer-events:none;}
 .tpl-field-box{position:absolute;border:2px solid rgba(67,160,71,.85);background:rgba(67,160,71,.16);cursor:move;}
 .tpl-field-box.selected{border-color:#facc15;background:rgba(250,204,21,.18);z-index:5;}
 .tpl-field-box.drawing{border-style:dashed;pointer-events:none;}
+.tpl-field-box.ai-suggested{border-color:#a855f7;background:rgba(168,85,247,.16);border-style:dashed;}
+.tpl-field-box.ai-suggested .tpl-field-tag{background:#a855f7;}
+.tpl-field-box.ai-suggested.selected{border-color:#facc15;background:rgba(250,204,21,.18);border-style:solid;}
+.tpl-field-box.ai-suggested.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
 .tpl-field-tag{position:absolute;top:-1.8cqw;left:-2px;font-size:1.3cqw;font-weight:700;background:rgba(67,160,71,.9);color:#fff;padding:.2cqw .8cqw;border-radius:4px;white-space:nowrap;pointer-events:none;}
 .tpl-field-box.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
 .tpl-field-handle{position:absolute;right:-6px;bottom:-6px;width:13px;height:13px;border-radius:50%;background:#facc15;border:2px solid #1a1a1a;cursor:nwse-resize;}
@@ -293,7 +303,10 @@ button,input,select,textarea{font-family:inherit;}
     <div class="tpl-editor-body">
       <div class="tpl-pages-col" id="tplPagesList"></div>
       <div class="tpl-canvas-col">
-        <div class="tpl-canvas-hint">Click and drag on the page to place a new field. Click an existing box to edit it, drag to move, or use the yellow handle to resize.</div>
+        <div class="tpl-canvas-toolbar">
+          <div class="tpl-canvas-hint">Click and drag to place a new field by hand, or let AI suggest boxes for this page. Either way, every box is fully editable — click one to adjust it, drag to move, or use the yellow handle to resize.</div>
+          <button class="btn btn-sm tpl-ai-check-btn" id="tplAiCheckBtn" onclick="runAiCheckForBoxes()">🤖 AI Check for Boxes</button>
+        </div>
         <div class="tpl-canvas-wrap" id="tplCanvasWrap"></div>
       </div>
       <div class="tpl-panel-col" id="tplFieldPanel"></div>
@@ -374,6 +387,14 @@ var TEMPLATE_BUCKET = "eval-templates";
 // Deploy nageo-evals-hcp-search-function.ts as an Edge Function (see the
 // deployment notes at the top of that file), then paste its exact URL here.
 var HCP_SEARCH_URL = SUPABASE_URL + "/functions/v1/nageo-evals-hcp-search";
+// Deploy nageo-evals-detect-fields.ts as an Edge Function (see the
+// deployment notes at the top of that file) for the "🤖 AI Check for Boxes"
+// button in the Template Manager, then paste its exact URL here.
+var DETECT_FIELDS_URL = SUPABASE_URL + "/functions/v1/nageo-evals-detect-fields";
+
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function showToast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},3200); }
@@ -912,23 +933,66 @@ function renderTplPagesList(){
       + '<button class="tpl-page-del" onclick="event.stopPropagation();deleteTplPage('+i+')" title="Delete page">✕</button>'
       + '</div>';
   }).join('');
-  html += '<label class="tpl-page-add">+ Add page(s)<input type="file" accept="image/*" multiple style="display:none" onchange="onTplPageFiles(this.files);this.value=\'\';"></label>';
+  html += '<label class="tpl-page-add">+ Add page(s)<input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="onTplPageFiles(this.files);this.value=\'\';"></label>';
   el.innerHTML = html;
 }
 function selectTplPage(i){
   activePageIdx = i; selectedFieldKey = null;
   renderTplPagesList(); renderTplCanvas(); renderTplFieldPanel();
 }
+// Renders every page of a PDF file to a jpg image client-side, so a
+// multi-page PDF template (the common case — most templates arrive as one
+// PDF export, not six separate image files) can be uploaded directly and
+// still end up as individual page images in Storage, same as any other
+// upload. Runs entirely in the browser via pdf.js — the PDF itself is
+// never uploaded anywhere.
+async function renderPdfToImageBlobs(file){
+  var buf = await file.arrayBuffer();
+  var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  var blobs = [];
+  for (var i = 1; i <= pdf.numPages; i++){
+    var page = await pdf.getPage(i);
+    // scale:2 gives a sharp enough render for both on-screen field placement
+    // and PDF export later, without producing an excessively large file.
+    var viewport = page.getViewport({ scale: 2 });
+    var canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    var ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    var blob = await new Promise(function(resolve){ canvas.toBlob(resolve, 'image/jpeg', 0.92); });
+    if (blob) blobs.push(blob);
+  }
+  return blobs;
+}
 async function onTplPageFiles(fileList){
   var files = Array.prototype.slice.call(fileList || []);
   if (!files.length) return;
-  showToast('Uploading ' + files.length + ' page image' + (files.length===1?'':'s') + '…');
-  editingTpl.pages = editingTpl.pages || [];
+  showToast('Processing ' + files.length + ' file' + (files.length===1?'':'s') + '…');
+  // Build a flat upload queue first — a single PDF can expand into several
+  // page images, everything else uploads as-is.
+  var uploadQueue = [];
   for (var i=0;i<files.length;i++){
     var file = files[i];
-    var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
-    var path = editingTpl.id + '/' + Date.now() + '-' + i + '.' + ext;
-    var up = await sb.storage.from(TEMPLATE_BUCKET).upload(path, file, { upsert:true });
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+      try {
+        var pageBlobs = await renderPdfToImageBlobs(file);
+        if (!pageBlobs.length) { showToast(file.name + ': could not read any pages from that PDF.'); continue; }
+        pageBlobs.forEach(function(b){ uploadQueue.push({ blob:b, ext:'jpg', contentType:'image/jpeg' }); });
+      } catch (e) {
+        showToast('Could not read PDF "' + file.name + '": ' + e.message);
+      }
+    } else {
+      var ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+      uploadQueue.push({ blob:file, ext:ext, contentType: file.type || 'image/jpeg' });
+    }
+  }
+  if (!uploadQueue.length) return;
+  showToast('Uploading ' + uploadQueue.length + ' page image' + (uploadQueue.length===1?'':'s') + '…');
+  editingTpl.pages = editingTpl.pages || [];
+  for (var j=0;j<uploadQueue.length;j++){
+    var item = uploadQueue[j];
+    var path = editingTpl.id + '/' + Date.now() + '-' + j + '.' + item.ext;
+    var up = await sb.storage.from(TEMPLATE_BUCKET).upload(path, item.blob, { upsert:true, contentType:item.contentType });
     if (up.error) { showToast('Upload failed: ' + up.error.message); continue; }
     var pub = sb.storage.from(TEMPLATE_BUCKET).getPublicUrl(path);
     editingTpl.pages.push(pub.data.publicUrl);
@@ -969,9 +1033,9 @@ function renderTplCanvas(){
     + '<img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" draggable="false">';
   fieldsOnActivePage().forEach(function(f){
     var sel = f.key === selectedFieldKey;
-    html += '<div class="tpl-field-box'+(sel?' selected':'')+'" data-key="'+esc(f.key)+'" '
+    html += '<div class="tpl-field-box'+(sel?' selected':'')+(f.aiSuggested?' ai-suggested':'')+'" data-key="'+esc(f.key)+'" '
       + 'style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;" onmousedown="onFieldMouseDown(event,\''+f.key+'\')">'
-      + '<span class="tpl-field-tag">'+esc(f.label||f.key)+'</span>'
+      + '<span class="tpl-field-tag">'+(f.aiSuggested?'🤖 ':'')+esc(f.label||f.key)+'</span>'
       + (sel ? '<div class="tpl-field-handle" onmousedown="onHandleMouseDown(event,\''+f.key+'\')"></div>' : '')
       + '</div>';
   });
@@ -1061,7 +1125,7 @@ function onFieldMouseDown(e, key){
     document.removeEventListener('mouseup', up);
     document.removeEventListener('mousemove', onCanvasMouseMove);
     var moved = Math.abs(ev.clientX-startClientX) >= 3 || Math.abs(ev.clientY-startClientY) >= 3;
-    if (moved) { tplDirty = true; setTplSaveStatus('pending'); }
+    if (moved) { f.aiSuggested = false; tplDirty = true; setTplSaveStatus('pending'); }
     canvasDrag = null;
     renderTplCanvas();
     if (!wasSelected) renderTplFieldPanel();
@@ -1078,6 +1142,7 @@ function onHandleMouseDown(e, key){
   function up(){
     document.removeEventListener('mouseup', up);
     document.removeEventListener('mousemove', onCanvasMouseMove);
+    f.aiSuggested = false;
     tplDirty = true; setTplSaveStatus('pending');
     canvasDrag = null;
     renderTplCanvas();
@@ -1108,6 +1173,49 @@ function addNewField(x,y,w,h){
   selectedFieldKey = key;
   tplDirty = true; setTplSaveStatus('pending');
   renderTplCanvas(); renderTplFieldPanel();
+}
+// ── AI CHECK FOR BOXES — sends the current page's image to Gemini (via the
+// nageo-evals-detect-fields Edge Function) and asks it to find blank
+// fillable regions and guess a label/type for each. Every suggestion is
+// added as a normal field (tagged aiSuggested so it renders with a purple
+// dashed box and a 🤖 in its tag until reviewed) — nothing is trusted or
+// saved without a person looking at it first. Available any time a page has
+// an image, not just right after upload, so it can be re-run later or run
+// on a page that was added by hand. ──
+async function runAiCheckForBoxes(){
+  if (!editingTpl || activePageIdx === -1 || !editingTpl.pages || !editingTpl.pages[activePageIdx]) {
+    showToast('Add a page image first.'); return;
+  }
+  var btn = document.getElementById('tplAiCheckBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🤖 Checking…'; }
+  try {
+    const res = await fetch(DETECT_FIELDS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+SUPABASE_KEY, 'apikey':SUPABASE_KEY },
+      body: JSON.stringify({ image_url: editingTpl.pages[activePageIdx] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    var suggestions = data.fields || [];
+    if (!suggestions.length) { showToast('No blank fields found on this page.'); return; }
+    editingTpl.fields = editingTpl.fields || [];
+    suggestions.forEach(function(s){
+      var key = uniqueKey(slugify(s.label || 'field'));
+      editingTpl.fields.push({
+        key:key, label:s.label || 'New Field', group:'Page '+(activePageIdx+1), page:activePageIdx,
+        type: ['text','currency','number','date'].indexOf(s.type) !== -1 ? s.type : 'text',
+        x:round2(s.x), y:round2(s.y), w:round2(s.w), h:round2(s.h),
+        fontPx:18, color:'#1a1a1a', weight:600, align:'left', aiSuggested:true
+      });
+    });
+    tplDirty = true; setTplSaveStatus('pending');
+    renderTplCanvas(); renderTplFieldPanel();
+    showToast('🤖 Added ' + suggestions.length + ' suggested field' + (suggestions.length===1?'':'s') + ' — review the purple boxes and adjust as needed.');
+  } catch (e) {
+    showToast('AI check failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 AI Check for Boxes'; }
+  }
 }
 function deleteSelectedField(){
   if (!selectedFieldKey) return;
@@ -1156,6 +1264,7 @@ function renderTplFieldPanel(){
 function updField(key, value){
   var f = fieldByKey(selectedFieldKey);
   if (!f) return;
+  f.aiSuggested = false; // any manual edit counts as reviewed
   if (key === 'key') {
     var newKey = slugify(value) || f.key;
     if (newKey !== f.key) {
