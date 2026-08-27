@@ -110,6 +110,12 @@ button,input,select,textarea{font-family:inherit;}
 .modal-go{padding:11px 18px;border:none;border-radius:10px;background:var(--green);color:#fff;cursor:pointer;font-size:14px;font-weight:700;}
 .modal-go:disabled{opacity:.4;cursor:not-allowed;}
 .modal-hint{font-size:12.5px;color:var(--text-dim);margin-top:-6px;margin-bottom:1rem;line-height:1.4;}
+.del-dots{display:flex;gap:6px;margin-bottom:1.3rem;}
+.del-dot{width:8px;height:8px;border-radius:50%;background:var(--glass-border);transition:background .2s;}
+.del-dot.active{background:var(--green);}
+.del-error{font-size:12.5px;color:#f87171;margin-top:8px;min-height:16px;}
+.modal-go.modal-danger{background:var(--danger);border-color:var(--danger);}
+.modal-go.modal-danger:hover{background:#b91c1c;}
 
 /* ── HCP customer search — used in the New Evaluation modal and the editor's Search HCP popover ── */
 .hcp-search-wrap{position:relative;}
@@ -375,6 +381,35 @@ button,input,select,textarea{font-family:inherit;}
   </div>
 </div>
 
+<div class="modal-bg" id="deleteEvalModal">
+  <div class="modal">
+    <div class="modal-title">Delete Evaluation</div>
+    <div class="del-dots"><span class="del-dot active" id="delDot1"></span><span class="del-dot" id="delDot2"></span></div>
+    <div id="delStep1">
+      <div class="modal-row">
+        <div class="modal-label">Step 1 of 2 — enter your PIN to confirm it's you</div>
+        <input type="password" class="modal-input" id="delPinInput" placeholder="PIN" maxlength="6" inputmode="numeric" onkeydown="if(event.key==='Enter')deleteEvalStep1()">
+        <div class="del-error" id="delPinError"></div>
+      </div>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeDeleteEvalModal()">Cancel</button>
+        <button class="modal-go" onclick="deleteEvalStep1()">Continue</button>
+      </div>
+    </div>
+    <div id="delStep2" style="display:none">
+      <div class="modal-row">
+        <div class="modal-label">Step 2 of 2 — type <strong>DELETE</strong> to permanently remove "<span id="delEvalName"></span>"</div>
+        <input type="text" class="modal-input" id="delConfirmInput" placeholder="DELETE" autocomplete="off" onkeydown="if(event.key==='Enter')deleteEvalStep2()">
+        <div class="del-error" id="delConfirmError"></div>
+      </div>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeDeleteEvalModal()">Cancel</button>
+        <button class="modal-go modal-danger" id="delFinalBtn" onclick="deleteEvalStep2()">Delete Evaluation</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -531,14 +566,58 @@ function renderDashboard(){
       + '<div class="dash-row-main"><div class="dash-row-name">'+esc(e.customer_name||'Untitled')+'</div>'
       + '<div class="dash-row-meta">'+(e.customer_number ? 'ID# '+esc(e.customer_number) : 'No ID number on file')+' · updated '+timeAgo(e.updated_at)+'</div></div>'
       + '<div class="dash-row-tmpl">'+esc(tmpl ? tmpl.name : 'Unknown template')+'</div>'
-      + '<button class="dash-row-del" onclick="event.stopPropagation();deleteEval(\''+e.id+'\',\''+esc(e.customer_name||'this evaluation').replace(/'/g,"\\'")+'\')" title="Delete">✕</button>'
+      + '<button class="dash-row-del" onclick="event.stopPropagation();openDeleteEvalModal(\''+e.id+'\',\''+esc(e.customer_name||'this evaluation').replace(/'/g,"\\'")+'\')" title="Delete">✕</button>'
       + '</div>';
   }).join('');
 }
-async function deleteEval(id, name){
-  if (!confirm('Delete the evaluation for '+name+'? This can\'t be undone.')) return;
-  await sb.from('evaluations').delete().eq('id', id);
+// ── Delete evaluation — two-step confirmation: re-enter your PIN, then type
+// DELETE. The PIN check is against any current user's PIN (not just
+// whoever's currently signed in), same idea as the sign-in screen — it's
+// checking "does this person have a valid PIN," not "is this the exact
+// session that was already open." ──
+var deleteEvalTarget = null; // {id, name}
+function openDeleteEvalModal(id, name){
+  deleteEvalTarget = { id: id, name: name };
+  document.getElementById('delEvalName').textContent = name;
+  document.getElementById('delPinInput').value = '';
+  document.getElementById('delConfirmInput').value = '';
+  document.getElementById('delPinError').textContent = '';
+  document.getElementById('delConfirmError').textContent = '';
+  document.getElementById('delStep1').style.display = 'block';
+  document.getElementById('delStep2').style.display = 'none';
+  document.getElementById('delDot1').classList.add('active');
+  document.getElementById('delDot2').classList.remove('active');
+  document.getElementById('deleteEvalModal').classList.add('open');
+  setTimeout(function(){ document.getElementById('delPinInput').focus(); }, 50);
+}
+function closeDeleteEvalModal(){
+  document.getElementById('deleteEvalModal').classList.remove('open');
+  deleteEvalTarget = null;
+}
+async function deleteEvalStep1(){
+  var pin = document.getElementById('delPinInput').value.trim();
+  var errEl = document.getElementById('delPinError');
+  if (!pin) { errEl.textContent = 'Enter a PIN.'; return; }
+  if (!users.length) await loadUsers();
+  var match = users.find(function(u){ return u.pin === pin; });
+  if (!match) { errEl.textContent = 'PIN not recognized.'; document.getElementById('delPinInput').value=''; return; }
+  errEl.textContent = '';
+  document.getElementById('delStep1').style.display = 'none';
+  document.getElementById('delStep2').style.display = 'block';
+  document.getElementById('delDot2').classList.add('active');
+  setTimeout(function(){ document.getElementById('delConfirmInput').focus(); }, 50);
+}
+async function deleteEvalStep2(){
+  var text = document.getElementById('delConfirmInput').value.trim();
+  var errEl = document.getElementById('delConfirmError');
+  if (text !== 'DELETE') { errEl.textContent = 'Type DELETE exactly (all caps) to confirm.'; return; }
+  if (!deleteEvalTarget) { closeDeleteEvalModal(); return; }
+  var btn = document.getElementById('delFinalBtn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  await sb.from('evaluations').delete().eq('id', deleteEvalTarget.id);
+  btn.disabled = false; btn.textContent = 'Delete Evaluation';
   showToast('Deleted.');
+  closeDeleteEvalModal();
   await showDashboard();
 }
 
