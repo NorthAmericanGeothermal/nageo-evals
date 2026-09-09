@@ -230,6 +230,10 @@ button,input,select,textarea{font-family:inherit;}
 .tpl-field-box.ai-suggested.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
 .tpl-field-tag{position:absolute;top:-1.8cqw;left:-2px;font-size:1.3cqw;font-weight:700;background:rgba(67,160,71,.9);color:#fff;padding:.2cqw .8cqw;border-radius:4px;white-space:nowrap;pointer-events:none;}
 .tpl-field-box.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
+.tpl-badge-box{position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,.18);cursor:move;}
+.tpl-badge-box.selected{border-color:#facc15;background:rgba(250,204,21,.18);}
+.tpl-badge-tag{position:absolute;top:-1.8cqw;left:-2px;font-size:1.3cqw;font-weight:700;background:#3b82f6;color:#fff;padding:.2cqw .8cqw;border-radius:4px;white-space:nowrap;pointer-events:none;}
+.tpl-badge-box.selected .tpl-badge-tag{background:#facc15;color:#1a1a1a;}
 .tpl-field-handle{position:absolute;right:-6px;bottom:-6px;width:13px;height:13px;border-radius:50%;background:#facc15;border:2px solid #1a1a1a;cursor:nwse-resize;}
 .tpl-panel-col{width:320px;min-width:280px;border-left:1px solid var(--glass-border);padding:1.5rem;overflow-y:auto;max-height:calc(100vh - 61px);position:sticky;top:61px;}
 .tpl-panel-hint{font-size:13px;color:var(--text-dim);line-height:1.5;padding-top:1rem;}
@@ -325,6 +329,7 @@ button,input,select,textarea{font-family:inherit;}
       <div class="tpl-canvas-col">
         <div class="tpl-canvas-toolbar">
           <div class="tpl-canvas-hint">Click and drag to place a new field by hand, or let AI suggest boxes for this page. Either way, every box is fully editable — click one to adjust it, drag to move, or use the yellow handle to resize.</div>
+          <button class="btn btn-sm" id="tplBadgeBtn" onclick="openBadgeEditor()">📍 Page Number Badge</button>
           <button class="btn btn-sm tpl-ai-check-btn" id="tplAiCheckBtn" onclick="runAiCheckForBoxes()">🤖 AI Check for Boxes</button>
         </div>
         <div class="tpl-canvas-wrap" id="tplCanvasWrap"></div>
@@ -834,6 +839,16 @@ function buildPageHtml(i, src, fieldsByPage){
       + esc(formatFieldValue(f, currentFields[f.key]))
       + '</div>';
   });
+  var badge = editingTemplate.page_num_badge;
+  if (badge && badge.enabled) {
+    var badgeText = formatBadgeText(badge.format, i + 1);
+    var badgeFontCqw = (badge.fontPx/1103*100).toFixed(3);
+    html += '<div class="field-cover" style="left:'+badge.x+'%;top:'+badge.y+'%;width:'+badge.w+'%;height:'+badge.h+'%;background:'+badge.bg+';"></div>';
+    html += '<div class="field-overlay" style="left:'+badge.x+'%;top:'+badge.y+'%;width:'+badge.w+'%;height:'+badge.h+'%;'
+      + 'align-items:center;justify-content:center;text-align:center;'
+      + 'font-size:'+badgeFontCqw+'cqw;color:'+badge.color+';font-weight:'+badge.weight+';">'
+      + esc(badgeText) + '</div>';
+  }
   return html;
 }
 function fieldsGroupedByPage(){
@@ -1020,6 +1035,7 @@ var editingTpl = null;      // local working copy of the template row
 var tplDirty = false;
 var activePageIdx = 0;
 var selectedFieldKey = null;
+var badgeSelected = false;  // true while the page-number badge (not a field) is selected
 var canvasDrag = null;
 
 function openTemplateEditor(id){
@@ -1029,6 +1045,7 @@ function openTemplateEditor(id){
   tplDirty = false;
   activePageIdx = (editingTpl.pages && editingTpl.pages.length) ? 0 : -1;
   selectedFieldKey = null;
+  badgeSelected = false;
   document.getElementById('templatesView').style.display='none';
   document.getElementById('templateEditorView').style.display='block';
   document.getElementById('tplEditorName').value = editingTpl.name;
@@ -1220,6 +1237,9 @@ function fieldsOnActivePage(){
 }
 function fieldByKey(key){ return (editingTpl.fields||[]).find(function(f){ return f.key === key; }); }
 
+function formatBadgeText(format, n){
+  return (format || 'PAGE {n}').replace('{n}', String(n));
+}
 function renderTplCanvas(){
   var wrap = document.getElementById('tplCanvasWrap');
   if (activePageIdx === -1 || !editingTpl.pages || !editingTpl.pages[activePageIdx]) {
@@ -1237,6 +1257,14 @@ function renderTplCanvas(){
       + (sel ? '<div class="tpl-field-handle" onmousedown="onHandleMouseDown(event,\''+f.key+'\')"></div>' : '')
       + '</div>';
   });
+  var badge = editingTpl.page_num_badge;
+  if (badge && badge.enabled) {
+    var badgeText = formatBadgeText(badge.format, activePageIdx + 1);
+    html += '<div class="tpl-badge-box'+(badgeSelected?' selected':'')+'" style="left:'+badge.x+'%;top:'+badge.y+'%;width:'+badge.w+'%;height:'+badge.h+'%;" onmousedown="onBadgeMouseDown(event)">'
+      + '<span class="tpl-badge-tag">📍 '+esc(badgeText)+'</span>'
+      + (badgeSelected ? '<div class="tpl-badge-handle" onmousedown="onBadgeHandleMouseDown(event)"></div>' : '')
+      + '</div>';
+  }
   html += '</div>';
   wrap.innerHTML = html;
 }
@@ -1252,7 +1280,7 @@ function round2(n){ return Math.round(n*100)/100; }
 function clampPct(v, max){ return Math.max(0, Math.min(max, v)); }
 
 function onCanvasMouseDown(e){
-  if (e.target.closest('.tpl-field-box')) return; // handled by onFieldMouseDown/onHandleMouseDown
+  if (e.target.closest('.tpl-field-box') || e.target.closest('.tpl-badge-box')) return; // handled by their own mousedown handlers
   var p = canvasPct(e);
   canvasDrag = { mode:'draw', startX:p.x, startY:p.y, temp:{ x:p.x, y:p.y, w:0, h:0 } };
   selectedFieldKey = null;
@@ -1281,7 +1309,25 @@ function onCanvasMouseMove(e){
     f2.w = round2(Math.max(2, Math.min(100 - f2.x, canvasDrag.origW + dw)));
     f2.h = round2(Math.max(1.5, Math.min(100 - f2.y, canvasDrag.origH + dh)));
     updateFieldBoxDom(f2);
+  } else if (canvasDrag.mode === 'badge-move') {
+    var badge = editingTpl.page_num_badge;
+    if (!badge) return;
+    var bdx = p.x - canvasDrag.startX, bdy = p.y - canvasDrag.startY;
+    badge.x = round2(clampPct(canvasDrag.origX + bdx, 100 - badge.w));
+    badge.y = round2(clampPct(canvasDrag.origY + bdy, 100 - badge.h));
+    updateBadgeBoxDom(badge);
+  } else if (canvasDrag.mode === 'badge-resize') {
+    var badge2 = editingTpl.page_num_badge;
+    if (!badge2) return;
+    var bdw = p.x - canvasDrag.startX, bdh = p.y - canvasDrag.startY;
+    badge2.w = round2(Math.max(3, Math.min(100 - badge2.x, canvasDrag.origW + bdw)));
+    badge2.h = round2(Math.max(2, Math.min(100 - badge2.y, canvasDrag.origH + bdh)));
+    updateBadgeBoxDom(badge2);
   }
+}
+function updateBadgeBoxDom(badge){
+  var el = document.querySelector('.tpl-badge-box');
+  if (el) { el.style.left=badge.x+'%'; el.style.top=badge.y+'%'; el.style.width=badge.w+'%'; el.style.height=badge.h+'%'; }
 }
 function onCanvasMouseUp(){
   document.removeEventListener('mousemove', onCanvasMouseMove);
@@ -1425,20 +1471,24 @@ function deleteSelectedField(){
 }
 
 function fld(label, type, key, val){
-  return '<div class="field-row"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="'+type+'" value="'+esc(val)+'" oninput="updField(\''+key+'\',this.value)"></div>';
+  return '<div class="field-row"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="'+type+'" value="'+esc(val)+'" oninput="updFieldLive(\''+key+'\',this.value)"></div>';
 }
 function numFld(label,key,val){
-  return '<div style="flex:1"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="number" step="0.1" value="'+val+'" oninput="updField(\''+key+'\',parseFloat(this.value)||0)"></div>';
+  return '<div style="flex:1"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="number" step="0.1" value="'+val+'" oninput="updFieldLive(\''+key+'\',parseFloat(this.value)||0)"></div>';
 }
 function renderTplFieldPanel(){
   var el = document.getElementById('tplFieldPanel');
+  if (badgeSelected && editingTpl.page_num_badge) {
+    el.innerHTML = buildBadgePanelHtml(editingTpl.page_num_badge);
+    return;
+  }
   var f = selectedFieldKey ? fieldByKey(selectedFieldKey) : null;
   if (!f) { el.innerHTML = '<div class="tpl-panel-hint">Click and drag on the page to add a field. Click an existing box to edit its label, type, and styling.</div>'; return; }
   el.innerHTML =
     '<div class="form-group-title">Field settings</div>'
     + fld('Label (shown on the form)','text','label',f.label)
-    + fld('Key (used internally — avoid changing after evaluations exist)','text','key',f.key)
-    + '<div class="field-row"><label class="field-label">Type</label><select class="field-input" onchange="updField(\'type\',this.value)">'
+    + '<div class="field-row"><label class="field-label">Key (used internally — avoid changing after evaluations exist)</label><input class="field-input" type="text" value="'+esc(f.key)+'" onblur="updFieldKeyBlur(this.value)"></div>'
+    + '<div class="field-row"><label class="field-label">Type</label><select class="field-input" onchange="updFieldAndRefresh(\'type\',this.value)">'
       + ['text','currency','number','date'].map(function(t){ return '<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+t+'</option>'; }).join('')
       + '</select></div>'
     + fld('Group (section header on the form)','text','group',f.group)
@@ -1447,40 +1497,186 @@ function renderTplFieldPanel(){
     + '<div class="field-row" style="display:flex;gap:8px;">' + numFld('W %','w',f.w) + numFld('H %','h',f.h) + '</div>'
     + '<div class="field-row" style="display:flex;gap:8px;align-items:flex-end;">'
       + numFld('Font px','fontPx',f.fontPx)
-      + '<div style="flex:1"><label class="field-label">Color</label><input class="field-input" type="color" value="'+(f.color||'#1a1a1a')+'" oninput="updField(\'color\',this.value)"></div>'
+      + '<div style="flex:1"><label class="field-label">Color</label><input class="field-input" type="color" value="'+(f.color||'#1a1a1a')+'" oninput="updFieldLive(\'color\',this.value)"></div>'
     + '</div>'
-    + '<div class="field-row"><label class="field-label">Weight</label><select class="field-input" onchange="updField(\'weight\',parseInt(this.value,10))">'
+    + '<div class="field-row"><label class="field-label">Weight</label><select class="field-input" onchange="updFieldAndRefresh(\'weight\',parseInt(this.value,10))">'
       + [400,500,600,700,800].map(function(w){ return '<option value="'+w+'"'+(f.weight===w?' selected':'')+'>'+w+'</option>'; }).join('')
       + '</select></div>'
-    + '<div class="field-row"><label class="field-label">Align</label><select class="field-input" onchange="updField(\'align\',this.value)">'
+    + '<div class="field-row"><label class="field-label">Align</label><select class="field-input" onchange="updFieldAndRefresh(\'align\',this.value)">'
       + ['left','center','right'].map(function(a){ return '<option value="'+a+'"'+(f.align===a?' selected':'')+'>'+a+'</option>'; }).join('')
       + '</select></div>'
-    + '<div class="field-row"><label class="field-label"><input type="checkbox" '+(f.cover?'checked':'')+' onchange="updField(\'cover\',this.checked)" style="margin-right:6px;"> Cover baked-in text first</label></div>'
-    + (f.cover ? '<div class="field-row"><label class="field-label">Cover color</label><input class="field-input" type="color" value="'+(f.coverColor||'#ffffff')+'" oninput="updField(\'coverColor\',this.value)"></div>' : '')
+    + '<div class="field-row"><label class="field-label"><input type="checkbox" '+(f.cover?'checked':'')+' onchange="updFieldAndRefresh(\'cover\',this.checked)" style="margin-right:6px;"> Cover baked-in text first</label></div>'
+    + (f.cover ? '<div class="field-row"><label class="field-label">Cover color</label><input class="field-input" type="color" value="'+(f.coverColor||'#ffffff')+'" oninput="updFieldLive(\'coverColor\',this.value)"></div>' : '')
     + '<button class="btn btn-sm" style="width:100%;color:#fca5a5;margin-top:8px;" onclick="deleteSelectedField()">Delete field</button>';
 }
-function updField(key, value){
+// Typing/dragging a text, number, or color input — updates the data model
+// and, where it's actually visible on the canvas (position/size, the label
+// tag), that DOM node directly. Never re-renders this panel: replacing the
+// panel's HTML mid-keystroke was exactly what was kicking focus out after
+// one character, since the input you were typing into got destroyed and
+// rebuilt from scratch on every input event.
+function updFieldLive(key, value){
   var f = fieldByKey(selectedFieldKey);
   if (!f) return;
   f.aiSuggested = false; // any manual edit counts as reviewed
-  if (key === 'key') {
-    var newKey = slugify(value) || f.key;
-    if (newKey !== f.key) {
-      if ((editingTpl.fields||[]).some(function(x){ return x!==f && x.key===newKey; })) { showToast('That key is already used by another field on this template.'); renderTplFieldPanel(); return; }
-      f.key = newKey; selectedFieldKey = newKey;
-    }
-  } else {
-    f[key] = value;
+  f[key] = value;
+  tplDirty = true; setTplSaveStatus('pending');
+  if (key === 'x' || key === 'y' || key === 'w' || key === 'h') updateFieldBoxDom(f);
+  else if (key === 'label') updateFieldTagDom(f);
+}
+// Renaming the key only commits (with a de-dupe check) once you leave the
+// field, rather than re-validating a half-typed name on every keystroke.
+// Safe to fully re-render here since focus has already moved on by the
+// time blur fires.
+function updFieldKeyBlur(value){
+  var f = fieldByKey(selectedFieldKey);
+  if (!f) return;
+  var newKey = slugify(value) || f.key;
+  if (newKey === f.key) return;
+  if ((editingTpl.fields||[]).some(function(x){ return x!==f && x.key===newKey; })) {
+    showToast('That key is already used by another field on this template.');
+    renderTplFieldPanel();
+    return;
   }
+  f.key = newKey; selectedFieldKey = newKey;
   tplDirty = true; setTplSaveStatus('pending');
   renderTplCanvas(); renderTplFieldPanel();
+}
+// For discrete, one-shot pickers (dropdowns, checkboxes) — safe to fully
+// refresh since picking an option doesn't need continued typing focus the
+// way a text field does, and the "cover" checkbox needs this refresh to
+// show or hide its color row.
+function updFieldAndRefresh(key, value){
+  var f = fieldByKey(selectedFieldKey);
+  if (!f) return;
+  f.aiSuggested = false;
+  f[key] = value;
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+function updateFieldTagDom(f){
+  var elTag = document.querySelector('.tpl-field-box[data-key="'+f.key+'"] .tpl-field-tag');
+  if (elTag) elTag.textContent = (f.aiSuggested ? '🤖 ' : '') + (f.label || f.key);
+}
+
+// ── PAGE NUMBER BADGE — a template-wide (not per-page) box that covers the
+// baked-in "PAGE N" graphic from the original page image and replaces it
+// with a live one computed from each page's CURRENT position. One setting
+// applies identically to every page, so dragging pages around (see the page
+// thumbnail reordering) never leaves a stale page number behind — the text
+// is always (index in editingTpl.pages) + 1, recalculated at render time. ──
+function ensureBadgeDefaults(){
+  if (!editingTpl.page_num_badge) {
+    // Defaults measured directly from the seeded template's own page-1
+    // image, so a freshly-enabled badge lines up closely with the original
+    // design before any manual nudging.
+    editingTpl.page_num_badge = {
+      enabled: false, x: 85, y: 0.3, w: 15, h: 5.3,
+      bg: '#0d2c5c', color: '#ffffff', fontPx: 22, weight: 800, format: 'PAGE {n}'
+    };
+  }
+  return editingTpl.page_num_badge;
+}
+function openBadgeEditor(){
+  var badge = ensureBadgeDefaults();
+  badge.enabled = true;
+  badgeSelected = true; selectedFieldKey = null;
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+function disableBadge(){
+  var badge = editingTpl.page_num_badge;
+  if (badge) badge.enabled = false;
+  badgeSelected = false;
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+function onBadgeMouseDown(e){
+  e.stopPropagation();
+  var badge = editingTpl.page_num_badge;
+  if (!badge) return;
+  var wasSelected = badgeSelected;
+  badgeSelected = true; selectedFieldKey = null;
+  if (!wasSelected) { renderTplCanvas(); renderTplFieldPanel(); }
+  var startClientX = e.clientX, startClientY = e.clientY;
+  var p = canvasPct(e);
+  canvasDrag = { mode:'badge-move', startX:p.x, startY:p.y, origX:badge.x, origY:badge.y };
+  document.addEventListener('mousemove', onCanvasMouseMove);
+  function up(ev){
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('mousemove', onCanvasMouseMove);
+    var moved = Math.abs(ev.clientX-startClientX) >= 3 || Math.abs(ev.clientY-startClientY) >= 3;
+    if (moved) { tplDirty = true; setTplSaveStatus('pending'); }
+    canvasDrag = null;
+    renderTplCanvas();
+    if (!wasSelected) renderTplFieldPanel();
+  }
+  document.addEventListener('mouseup', up);
+}
+function onBadgeHandleMouseDown(e){
+  e.stopPropagation();
+  var badge = editingTpl.page_num_badge;
+  if (!badge) return;
+  var p = canvasPct(e);
+  canvasDrag = { mode:'badge-resize', startX:p.x, startY:p.y, origW:badge.w, origH:badge.h };
+  document.addEventListener('mousemove', onCanvasMouseMove);
+  function up(){
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('mousemove', onCanvasMouseMove);
+    tplDirty = true; setTplSaveStatus('pending');
+    canvasDrag = null;
+    renderTplCanvas();
+  }
+  document.addEventListener('mouseup', up);
+}
+function numFldBadge(label,key,val){
+  return '<div style="flex:1"><label class="field-label">'+esc(label)+'</label><input class="field-input" type="number" step="0.1" value="'+val+'" oninput="updBadgeLive(\''+key+'\',parseFloat(this.value)||0)"></div>';
+}
+function buildBadgePanelHtml(badge){
+  return '<div class="form-group-title">📍 Page number badge</div>'
+    + '<div class="tpl-panel-hint" style="padding-top:0;margin-bottom:10px;">Covers the page image\'s own "PAGE N" graphic and shows this instead — same position on every page, number always matches the page\'s current order.</div>'
+    + '<div class="field-row"><label class="field-label">Text format — {n} becomes the page number</label><input class="field-input" type="text" value="'+esc(badge.format||'PAGE {n}')+'" oninput="updBadgeLive(\'format\',this.value)"></div>'
+    + '<div class="field-row" style="display:flex;gap:8px;">' + numFldBadge('X %','x',badge.x) + numFldBadge('Y %','y',badge.y) + '</div>'
+    + '<div class="field-row" style="display:flex;gap:8px;">' + numFldBadge('W %','w',badge.w) + numFldBadge('H %','h',badge.h) + '</div>'
+    + '<div class="field-row" style="display:flex;gap:8px;align-items:flex-end;">'
+      + numFldBadge('Font px','fontPx',badge.fontPx)
+      + '<div style="flex:1"><label class="field-label">Text color</label><input class="field-input" type="color" value="'+(badge.color||'#ffffff')+'" oninput="updBadgeLive(\'color\',this.value)"></div>'
+    + '</div>'
+    + '<div class="field-row"><label class="field-label">Background color</label><input class="field-input" type="color" value="'+(badge.bg||'#0d2c5c')+'" oninput="updBadgeLive(\'bg\',this.value)"></div>'
+    + '<div class="field-row"><label class="field-label">Weight</label><select class="field-input" onchange="updBadgeAndRefresh(\'weight\',parseInt(this.value,10))">'
+      + [400,500,600,700,800].map(function(w){ return '<option value="'+w+'"'+(badge.weight===w?' selected':'')+'>'+w+'</option>'; }).join('')
+      + '</select></div>'
+    + '<button class="btn btn-sm" style="width:100%;color:#fca5a5;margin-top:8px;" onclick="disableBadge()">Turn off page number badge</button>';
+}
+// Same fix as updFieldLive — update the data and, where visible (position/
+// size, the badge's own tag text), the canvas DOM directly, but never
+// re-render this panel while the person is still typing or dragging.
+function updBadgeLive(key, value){
+  var badge = editingTpl.page_num_badge;
+  if (!badge) return;
+  badge[key] = value;
+  tplDirty = true; setTplSaveStatus('pending');
+  if (key === 'x' || key === 'y' || key === 'w' || key === 'h') updateBadgeBoxDom(badge);
+  else if (key === 'format') updateBadgeTagDom(badge);
+}
+function updBadgeAndRefresh(key, value){
+  var badge = editingTpl.page_num_badge;
+  if (!badge) return;
+  badge[key] = value;
+  tplDirty = true; setTplSaveStatus('pending');
+  renderTplCanvas(); renderTplFieldPanel();
+}
+function updateBadgeTagDom(badge){
+  var elTag = document.querySelector('.tpl-badge-box .tpl-badge-tag');
+  if (elTag) elTag.textContent = '📍 ' + formatBadgeText(badge.format, activePageIdx + 1);
 }
 
 async function saveTemplateNow(){
   if (!editingTpl) return;
   setTplSaveStatus('saving');
   var r = await sb.from('templates').update({
-    name: editingTpl.name, pages: editingTpl.pages, fields: editingTpl.fields, updated_at: new Date().toISOString()
+    name: editingTpl.name, pages: editingTpl.pages, fields: editingTpl.fields,
+    page_num_badge: editingTpl.page_num_badge || null, updated_at: new Date().toISOString()
   }).eq('id', editingTpl.id);
   if (r.error) { console.warn('[templates] save failed', r.error); setTplSaveStatus('error'); showToast('Save failed: ' + r.error.message); return; }
   tplDirty = false; setTplSaveStatus('saved');
