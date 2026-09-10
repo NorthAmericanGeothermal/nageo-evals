@@ -228,6 +228,10 @@ button,input,select,textarea{font-family:inherit;}
 .tpl-field-box.ai-suggested .tpl-field-tag{background:#a855f7;}
 .tpl-field-box.ai-suggested.selected{border-color:#facc15;background:rgba(250,204,21,.18);border-style:solid;}
 .tpl-field-box.ai-suggested.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
+.tpl-field-box.cover-type{border-color:#64748b;background:rgba(100,116,139,.24);}
+.tpl-field-box.cover-type .tpl-field-tag{background:#64748b;}
+.tpl-field-box.cover-type.selected{border-color:#facc15;background:rgba(250,204,21,.18);}
+.tpl-field-box.cover-type.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
 .tpl-field-tag{position:absolute;top:-1.8cqw;left:-2px;font-size:1.3cqw;font-weight:700;background:rgba(67,160,71,.9);color:#fff;padding:.2cqw .8cqw;border-radius:4px;white-space:nowrap;pointer-events:none;}
 .tpl-field-box.selected .tpl-field-tag{background:#facc15;color:#1a1a1a;}
 .tpl-badge-box{position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,.18);cursor:move;}
@@ -803,6 +807,7 @@ function renderForm(){
   var groups = [];
   var byGroup = {};
   editingTemplate.fields.forEach(function(f){
+    if (f.type === 'cover') return; // decoration only — no value to type in, never shown on the form
     if (!byGroup[f.group]) { byGroup[f.group] = []; groups.push(f.group); }
     byGroup[f.group].push(f);
   });
@@ -830,6 +835,7 @@ function buildPageHtml(i, src, fieldsByPage){
     if (f.cover) {
       html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
     }
+    if (f.type === 'cover') return; // pure decoration — no text, nothing typed in, stop here
     var justify = f.align==='center' ? 'center' : f.align==='right' ? 'flex-end' : 'flex-start';
     var textAlign = f.align || 'left';
     var fontCqw = (f.fontPx/1103*100).toFixed(3);
@@ -1251,9 +1257,10 @@ function renderTplCanvas(){
     + '<img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" draggable="false">';
   fieldsOnActivePage().forEach(function(f){
     var sel = f.key === selectedFieldKey;
-    html += '<div class="tpl-field-box'+(sel?' selected':'')+(f.aiSuggested?' ai-suggested':'')+'" data-key="'+esc(f.key)+'" '
+    var isCover = f.type === 'cover';
+    html += '<div class="tpl-field-box'+(sel?' selected':'')+(f.aiSuggested?' ai-suggested':'')+(isCover?' cover-type':'')+'" data-key="'+esc(f.key)+'" '
       + 'style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;" onmousedown="onFieldMouseDown(event,\''+f.key+'\')">'
-      + '<span class="tpl-field-tag">'+(f.aiSuggested?'🤖 ':'')+esc(f.label||f.key)+'</span>'
+      + '<span class="tpl-field-tag">'+(f.aiSuggested?'🤖 ':'')+(isCover?'⬜ ':'')+esc(f.label||f.key)+'</span>'
       + (sel ? '<div class="tpl-field-handle" onmousedown="onHandleMouseDown(event,\''+f.key+'\')"></div>' : '')
       + '</div>';
   });
@@ -1484,29 +1491,34 @@ function renderTplFieldPanel(){
   }
   var f = selectedFieldKey ? fieldByKey(selectedFieldKey) : null;
   if (!f) { el.innerHTML = '<div class="tpl-panel-hint">Click and drag on the page to add a field. Click an existing box to edit its label, type, and styling.</div>'; return; }
+  var isCover = f.type === 'cover';
   el.innerHTML =
     '<div class="form-group-title">Field settings</div>'
     + fld('Label (shown on the form)','text','label',f.label)
     + '<div class="field-row"><label class="field-label">Key (used internally — avoid changing after evaluations exist)</label><input class="field-input" type="text" value="'+esc(f.key)+'" onblur="updFieldKeyBlur(this.value)"></div>'
     + '<div class="field-row"><label class="field-label">Type</label><select class="field-input" onchange="updFieldAndRefresh(\'type\',this.value)">'
-      + ['text','currency','number','date'].map(function(t){ return '<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+t+'</option>'; }).join('')
+      + ['text','currency','number','date','cover'].map(function(t){ return '<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+(t==='cover'?'Cover only (no text)':t)+'</option>'; }).join('')
       + '</select></div>'
-    + fld('Group (section header on the form)','text','group',f.group)
-    + fld('Placeholder (hint text)','text','placeholder',f.placeholder||'')
+    + (isCover ? '<div class="tpl-panel-hint" style="padding-top:0;">Just paints over whatever\'s behind it — no text, and it won\'t show up on the evaluation form since there\'s nothing to type in.</div>' : '')
+    + (isCover ? '' : fld('Group (section header on the form)','text','group',f.group))
+    + (isCover ? '' : fld('Placeholder (hint text)','text','placeholder',f.placeholder||''))
     + '<div class="field-row" style="display:flex;gap:8px;">' + numFld('X %','x',f.x) + numFld('Y %','y',f.y) + '</div>'
     + '<div class="field-row" style="display:flex;gap:8px;">' + numFld('W %','w',f.w) + numFld('H %','h',f.h) + '</div>'
-    + '<div class="field-row" style="display:flex;gap:8px;align-items:flex-end;">'
+    + (isCover ? '' :
+      '<div class="field-row" style="display:flex;gap:8px;align-items:flex-end;">'
       + numFld('Font px','fontPx',f.fontPx)
       + '<div style="flex:1"><label class="field-label">Color</label><input class="field-input" type="color" value="'+(f.color||'#1a1a1a')+'" oninput="updFieldLive(\'color\',this.value)"></div>'
-    + '</div>'
-    + '<div class="field-row"><label class="field-label">Weight</label><select class="field-input" onchange="updFieldAndRefresh(\'weight\',parseInt(this.value,10))">'
+      + '</div>'
+      + '<div class="field-row"><label class="field-label">Weight</label><select class="field-input" onchange="updFieldAndRefresh(\'weight\',parseInt(this.value,10))">'
       + [400,500,600,700,800].map(function(w){ return '<option value="'+w+'"'+(f.weight===w?' selected':'')+'>'+w+'</option>'; }).join('')
       + '</select></div>'
-    + '<div class="field-row"><label class="field-label">Align</label><select class="field-input" onchange="updFieldAndRefresh(\'align\',this.value)">'
+      + '<div class="field-row"><label class="field-label">Align</label><select class="field-input" onchange="updFieldAndRefresh(\'align\',this.value)">'
       + ['left','center','right'].map(function(a){ return '<option value="'+a+'"'+(f.align===a?' selected':'')+'>'+a+'</option>'; }).join('')
       + '</select></div>'
-    + '<div class="field-row"><label class="field-label"><input type="checkbox" '+(f.cover?'checked':'')+' onchange="updFieldAndRefresh(\'cover\',this.checked)" style="margin-right:6px;"> Cover baked-in text first</label></div>'
-    + (f.cover ? '<div class="field-row"><label class="field-label">Cover color</label><input class="field-input" type="color" value="'+(f.coverColor||'#ffffff')+'" oninput="updFieldLive(\'coverColor\',this.value)"></div>' : '')
+      + '<div class="field-row"><label class="field-label"><input type="checkbox" '+(f.cover?'checked':'')+' onchange="updFieldAndRefresh(\'cover\',this.checked)" style="margin-right:6px;"> Cover baked-in text first</label></div>'
+      + (f.cover ? '<div class="field-row"><label class="field-label">Cover color</label><input class="field-input" type="color" value="'+(f.coverColor||'#ffffff')+'" oninput="updFieldLive(\'coverColor\',this.value)"></div>' : '')
+    )
+    + (isCover ? '<div class="field-row"><label class="field-label">Box color</label><input class="field-input" type="color" value="'+(f.coverColor||'#ffffff')+'" oninput="updFieldLive(\'coverColor\',this.value)"></div>' : '')
     + '<button class="btn btn-sm" style="width:100%;color:#fca5a5;margin-top:8px;" onclick="deleteSelectedField()">Delete field</button>';
 }
 // Typing/dragging a text, number, or color input — updates the data model
@@ -1551,6 +1563,10 @@ function updFieldAndRefresh(key, value){
   if (!f) return;
   f.aiSuggested = false;
   f[key] = value;
+  if (key === 'type' && value === 'cover') {
+    f.cover = true;
+    if (!f.coverColor) f.coverColor = '#ffffff';
+  }
   tplDirty = true; setTplSaveStatus('pending');
   renderTplCanvas(); renderTplFieldPanel();
 }
