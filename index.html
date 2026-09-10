@@ -832,14 +832,8 @@ function renderForm(){
 function buildPageHtml(i, src, fieldsByPage){
   var html = '<img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
   (fieldsByPage[i]||[]).forEach(function(f){
-    // Cover-type fields have no value at all, so they always paint their
-    // cover. A normal field's "cover baked-in text" only kicks in once
-    // something's actually been typed into it — until then, the baked
-    // example (e.g. a sample "$92") stays visible as a natural placeholder
-    // instead of being replaced by a blank colored hole.
     var raw = currentFields[f.key];
-    var hasValue = raw != null && raw !== '';
-    if (f.cover && (f.type === 'cover' || hasValue)) {
+    if (f.cover) {
       html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
     }
     if (f.type === 'cover') return; // pure decoration — no text, nothing typed in, stop here
