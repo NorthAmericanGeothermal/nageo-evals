@@ -832,7 +832,14 @@ function renderForm(){
 function buildPageHtml(i, src, fieldsByPage){
   var html = '<img class="page-bg" src="'+esc(src)+'" crossorigin="anonymous" alt="Page '+(i+1)+'"><div class="page-num">Page '+(i+1)+'</div>';
   (fieldsByPage[i]||[]).forEach(function(f){
-    if (f.cover) {
+    // Cover-type fields have no value at all, so they always paint their
+    // cover. A normal field's "cover baked-in text" only kicks in once
+    // something's actually been typed into it — until then, the baked
+    // example (e.g. a sample "$92") stays visible as a natural placeholder
+    // instead of being replaced by a blank colored hole.
+    var raw = currentFields[f.key];
+    var hasValue = raw != null && raw !== '';
+    if (f.cover && (f.type === 'cover' || hasValue)) {
       html += '<div class="field-cover" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;background:'+f.coverColor+';"></div>';
     }
     if (f.type === 'cover') return; // pure decoration — no text, nothing typed in, stop here
@@ -842,7 +849,7 @@ function buildPageHtml(i, src, fieldsByPage){
     html += '<div class="field-overlay" data-key="'+f.key+'" style="left:'+f.x+'%;top:'+f.y+'%;width:'+f.w+'%;height:'+f.h+'%;'
       + 'align-items:center;justify-content:'+justify+';text-align:'+textAlign+';'
       + 'font-size:'+fontCqw+'cqw;color:'+f.color+';font-weight:'+f.weight+';">'
-      + esc(formatFieldValue(f, currentFields[f.key]))
+      + esc(formatFieldValue(f, raw))
       + '</div>';
   });
   var badge = editingTemplate.page_num_badge;
@@ -964,14 +971,15 @@ async function exportPDF(){
     var pages = document.querySelectorAll('#editorPreview .page');
     var pdf = new window.jspdf.jsPDF({ unit:'in', format:'letter', orientation:'portrait' });
     for (var i = 0; i < pages.length; i++) {
-      // scale:3 + PNG (lossless) instead of the previous scale:2 + JPEG —
-      // JPEG's compression artifacts were exactly what made small text and
-      // the white cover patches look muddy/doubled once exported. PNG costs
-      // a bigger file size, worth it for a client-facing document.
-      var canvas = await html2canvas(pages[i], { scale:3, useCORS:true, backgroundColor:'#ffffff' });
-      var imgData = canvas.toDataURL('image/png');
+      // JPEG at scale:2 — what actually caused blurry/garbled exports earlier
+      // was a layout bug that shrank and cropped the page boxes before
+      // capture; that's fixed separately now. Lossless PNG at scale:3 was
+      // never needed to fix it and was producing 100+ MB PDFs (photographic
+      // backgrounds compress poorly as PNG) — too big to email or upload to HCP.
+      var canvas = await html2canvas(pages[i], { scale:2, useCORS:true, backgroundColor:'#ffffff' });
+      var imgData = canvas.toDataURL('image/jpeg', 0.92);
       if (i > 0) pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, 0, 8.5, 11);
+      pdf.addImage(imgData, 'JPEG', 0, 0, 8.5, 11);
     }
     var fname = (currentFields.customerName || editingEval.customer_name || 'evaluation').replace(/[^a-z0-9]+/gi,'-') + '-proposal.pdf';
     pdf.save(fname);
